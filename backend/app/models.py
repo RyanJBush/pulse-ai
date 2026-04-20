@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,7 +14,9 @@ class Event(Base):
     event_type: Mapped[str] = mapped_column(String(120), index=True)
     value: Mapped[float | None] = mapped_column(Float, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+    )
 
     scores: Mapped[list["AnomalyScore"]] = relationship(back_populates="event")
 
@@ -29,7 +31,9 @@ class AnomalyScore(Base):
     combined_score: Mapped[float] = mapped_column(Float, index=True)
     model_version: Mapped[str] = mapped_column(String(40), default="mvp-v1")
     details: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+    )
 
     event: Mapped[Event] = relationship(back_populates="scores")
     alert: Mapped["Alert | None"] = relationship(back_populates="anomaly_score", uselist=False)
@@ -44,6 +48,8 @@ class Alert(Base):
     severity: Mapped[str] = mapped_column(String(40), index=True)
     status: Mapped[str] = mapped_column(String(40), default="open", index=True)
     message: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+    )
 
     anomaly_score: Mapped[AnomalyScore] = relationship(back_populates="alert")

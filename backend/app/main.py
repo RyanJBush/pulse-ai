@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,14 @@ from app.schemas import (
     MetricsSummary,
 )
 
-app = FastAPI(title="Pulse AI API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="Pulse AI API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,11 +33,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/health")
@@ -117,7 +120,7 @@ def metrics_summary(db: Session = Depends(get_db)) -> MetricsSummary:
     open_alerts = db.scalar(select(func.count(Alert.id)).where(Alert.status == "open")) or 0
     avg_combined_score = db.scalar(select(func.avg(AnomalyScore.combined_score))) or 0.0
 
-    cutoff = datetime.utcnow() - timedelta(hours=1)
+    cutoff = datetime.now(UTC) - timedelta(hours=1)
     events_last_hour = (
         db.scalar(select(func.count(Event.id)).where(Event.created_at >= cutoff)) or 0
     )
