@@ -1,16 +1,27 @@
-import logging
+import math
+import random
+import time
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.logging import get_logger
 from app.models.anomaly_score import AnomalyScore
 from app.models.event import Event
-from app.schemas.event import EventCreate, EventIngestResponse, EventRead
+from app.schemas.event import (
+    EventCreate,
+    EventIngestResponse,
+    EventRead,
+    ReplayRequest,
+    ReplayResponse,
+)
 from app.schemas.scoring import ScoreRequest
 from app.services.alert_service import AlertService
-from app.services.scoring_service import ScoringService, score_severity
+from app.services.scoring_service import ScoringService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EventService:
@@ -19,7 +30,9 @@ class EventService:
         self.scoring_service = ScoringService(db)
         self.alert_service = AlertService(db)
 
-    def _extract_value(self, payload: dict) -> float:
+    def _extract_value(self, payload: dict, fallback_value: float | None) -> float:
+        if fallback_value is not None:
+            return float(fallback_value)
         raw = payload.get("value", 0.0)
         try:
             return float(raw)
@@ -27,38 +40,85 @@ class EventService:
             return 0.0
 
     def ingest_event(self, payload: EventCreate) -> EventIngestResponse:
-        event = Event(**payload.model_dump(), value=self._extract_value(payload.payload))
+        signal_type = payload.signal_type or payload.event_type
+        event_timestamp = payload.event_timestamp or datetime.utcnow()
+        event = Event(
+            source=payload.source,
+            event_type=payload.event_type,
+            signal_type=signal_type,
+            entity_id=payload.entity_id,
+            payload=payload.payload,
+            value=self._extract_value(payload.payload, payload.value),
+            event_timestamp=event_timestamp,
+        )
         self.db.add(event)
         self.db.commit()
         self.db.refresh(event)
-        logger.info("event_ingested id=%s source=%s type=%s", event.id, event.source, event.event_type)
+        logger.info(
+            "event_ingested id=%s source=%s signal=%s entity=%s event_ts=%s",
+            event.id,
+            event.source,
+            event.signal_type,
+            event.entity_id,
+            event.event_timestamp.isoformat(),
+        )
 
-        score = self.scoring_service.score_payload(ScoreRequest(**payload.model_dump()))
+        score_started = time.perf_counter()
+        score = self.scoring_service.score_payload(
+            ScoreRequest(
+                source=event.source,
+                event_type=event.event_type,
+                signal_type=event.signal_type,
+                entity_id=event.entity_id,
+                payload=event.payload,
+            ),
+            event_timestamp=event.event_timestamp,
+        )
+        score_latency_ms = round((time.perf_counter() - score_started) * 1000.0, 4)
+
+        drift_hook = "watch" if score.confidence_score > 0.8 and score.combined_score > 0.7 else "stable"
         db_score = AnomalyScore(
             event_id=event.id,
             z_score=score.z_score,
             isolation_score=score.isolation_score,
+            rolling_score=score.rolling_score,
+            seasonal_score=score.seasonal_score,
             combined_score=score.combined_score,
             is_anomalous=score.is_anomalous,
+            selected_detector=score.selected_detector,
+            dynamic_threshold=score.dynamic_threshold,
+            confidence_score=score.confidence_score,
+            severity=score.severity,
+            reason_codes=score.reason_codes,
+            scoring_latency_ms=score_latency_ms,
+            details={"detector_scores": score.detector_scores, "drift_hook": drift_hook},
         )
         self.db.add(db_score)
         self.db.commit()
+        self.db.refresh(db_score)
 
         alert_id = None
         if score.is_anomalous:
-            severity = score_severity(score.combined_score)
             alert = self.alert_service.create_alert(
                 event_id=event.id,
-                severity=severity,
-                message=f"Anomalous event detected: source={event.source}, type={event.event_type}",
+                anomaly_score_id=db_score.id,
+                severity=score.severity,
+                message=f"Anomalous event detected: source={event.source}, signal={event.signal_type}",
+                cooldown_key=f"{event.entity_id}:{event.signal_type}:{score.severity}",
             )
-            alert_id = alert.id
+            alert_id = alert.id if alert else None
 
         return EventIngestResponse(
             event=EventRead.model_validate(event),
             z_score=score.z_score,
             isolation_score=score.isolation_score,
+            rolling_score=score.rolling_score,
+            seasonal_score=score.seasonal_score,
             combined_score=score.combined_score,
+            dynamic_threshold=score.dynamic_threshold,
+            confidence_score=score.confidence_score,
+            severity=score.severity,
+            reason_codes=score.reason_codes,
             is_anomalous=score.is_anomalous,
             alert_id=alert_id,
         )
@@ -66,3 +126,61 @@ class EventService:
     def list_events(self, limit: int = 100) -> list[EventRead]:
         stmt = select(Event).order_by(Event.created_at.desc()).limit(limit)
         return [EventRead.model_validate(item) for item in self.db.scalars(stmt).all()]
+
+    def replay_seeded_stream(self, payload: ReplayRequest) -> ReplayResponse:
+        base_time = payload.start_at or datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+        rng = random.Random(payload.seed)
+
+        events_to_replay: list[EventCreate] = []
+        for idx in range(payload.count):
+            ts = base_time + timedelta(seconds=idx * payload.interval_seconds)
+            seasonal_component = 10.0 * math.sin(idx / 8.0)
+            noise = rng.uniform(-2.0, 2.0)
+            value = 60.0 + seasonal_component + noise
+            if payload.inject_spike_every > 0 and idx > 0 and idx % payload.inject_spike_every == 0:
+                value = value * settings.REPLAY_SPIKE_MULTIPLIER
+            events_to_replay.append(
+                EventCreate(
+                    source=payload.source,
+                    event_type=payload.event_type,
+                    signal_type=payload.signal_type,
+                    entity_id=payload.entity_id,
+                    event_timestamp=ts,
+                    value=round(value, 4),
+                    payload={"value": round(value, 4), "seed": payload.seed, "replay_index": idx},
+                )
+            )
+
+        if payload.allow_out_of_order and len(events_to_replay) >= 3:
+            for idx in range(0, len(events_to_replay) - 2, 17):
+                events_to_replay[idx], events_to_replay[idx + 2] = (
+                    events_to_replay[idx + 2],
+                    events_to_replay[idx],
+                )
+
+        anomalous = 0
+        alert_ids: set[int] = set()
+        suppressed_alerts = 0
+        for replay_event in events_to_replay:
+            response = self.ingest_event(replay_event)
+            if response.is_anomalous:
+                anomalous += 1
+            if response.alert_id is not None:
+                alert_ids.add(response.alert_id)
+            if response.is_anomalous and response.alert_id is None:
+                suppressed_alerts += 1
+
+        logger.info(
+            "replay_completed seed=%s count=%s anomalous=%s alerts=%s suppressed=%s",
+            payload.seed,
+            payload.count,
+            anomalous,
+            len(alert_ids),
+            suppressed_alerts,
+        )
+        return ReplayResponse(
+            ingested=payload.count,
+            anomalous=anomalous,
+            alerts_created=len(alert_ids),
+            suppressed_alerts=suppressed_alerts,
+        )
