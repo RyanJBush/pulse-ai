@@ -1,89 +1,68 @@
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.database import Base, get_db
-from app.main import app
-
-engine = create_engine(
-    "sqlite+pysqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=Session)
+def _ingest(client, value: float, entity_id: str = "entity-ops-1"):
+    return client.post(
+        "/api/v1/events/ingest",
+        json={
+            "source": "payments",
+            "event_type": "latency",
+            "signal_type": "latency",
+            "entity_id": entity_id,
+            "payload": {"value": value},
+        },
+    )
 
 
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-def test_health():
+def test_health(client):
     response = client.get("/health")
-
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_event_ingestion_and_listing():
-    created = client.post(
-        "/api/events",
-        json={"source_id": "sensor-a", "event_type": "temperature", "value": 21.5, "payload": {}},
+def test_alert_lifecycle_and_notes(client):
+    for value in [10.1, 10.0, 9.9, 10.2, 10.1, 9.8, 10.0, 10.2, 10.1, 9.9, 10.3, 10.0]:
+        _ingest(client, value)
+    anomaly = _ingest(client, 280.0).json()
+    assert anomaly["is_anomalous"] is True
+
+    alert_id = anomaly["alert_id"]
+    assert alert_id is not None
+
+    updated = client.patch(
+        f"/api/v1/alerts/{alert_id}/status",
+        json={"status": "acknowledged", "author": "operator-1", "note": "Investigating spike"},
     )
+    assert updated.status_code == 200
+    assert updated.json()["status"] == "acknowledged"
 
-    assert created.status_code == 200
-    assert created.json()["source_id"] == "sensor-a"
-
-    listed = client.get("/api/events")
-    assert listed.status_code == 200
-    assert len(listed.json()) >= 1
-
-
-def test_scoring_alerts_and_metrics():
-    for idx in range(12):
-        client.post(
-            "/api/events",
-            json={
-                "source_id": "sensor-b",
-                "event_type": "latency",
-                "value": 10 + (idx % 2),
-                "payload": {"window": idx},
-            },
-        )
-
-    anomaly_event = client.post(
-        "/api/events",
-        json={"source_id": "sensor-b", "event_type": "latency", "value": 98.0, "payload": {}},
-    ).json()
-
-    score = client.post(
-        "/api/anomaly/score",
-        json={"event_id": anomaly_event["id"], "threshold": 0.3},
+    note = client.post(
+        f"/api/v1/alerts/{alert_id}/notes",
+        json={"author": "operator-1", "note": "Checked upstream latency."},
     )
+    assert note.status_code == 201
 
-    assert score.status_code == 200
-    body = score.json()
-    assert body["combined_score"] >= 0.3
-    assert body["alert_id"] is not None
+    notes = client.get(f"/api/v1/alerts/{alert_id}/notes")
+    assert notes.status_code == 200
+    assert len(notes.json()) >= 2
 
-    latest = client.get(f"/api/anomaly/{anomaly_event['id']}")
-    assert latest.status_code == 200
 
-    alerts = client.get("/api/alerts")
-    assert alerts.status_code == 200
-    assert len(alerts.json()) >= 1
+def test_metrics_summary_and_entity_drilldown(client):
+    for value in [18.0, 18.5, 19.0, 18.7, 45.0, 18.6]:
+        _ingest(client, value, entity_id="entity-metrics-1")
 
-    metrics = client.get("/api/metrics/summary")
-    assert metrics.status_code == 200
-    assert metrics.json()["total_events"] >= 13
+    summary = client.get("/api/v1/metrics/summary")
+    assert summary.status_code == 200
+    summary_body = summary.json()
+    assert set(summary_body.keys()) == {
+        "anomaly_rate",
+        "alert_count",
+        "throughput_per_minute",
+        "high_severity_anomalies",
+        "avg_scoring_latency_ms",
+    }
+
+    drilldown = client.get("/api/v1/metrics/entities/entity-metrics-1")
+    assert drilldown.status_code == 200
+    drilldown_body = drilldown.json()
+    assert drilldown_body["entity_id"] == "entity-metrics-1"
+    assert drilldown_body["total_events"] == 6
+    assert "severity_distribution" in drilldown_body
+    assert "reason_code_distribution" in drilldown_body

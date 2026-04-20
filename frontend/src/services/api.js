@@ -18,7 +18,7 @@ const mockAlerts = [
   }
 ];
 
-async function request(path, fallback = []) {
+async function request(path) {
   const response = await fetch(`${API_BASE_URL}${path}`);
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);

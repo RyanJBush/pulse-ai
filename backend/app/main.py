@@ -1,31 +1,39 @@
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from time import perf_counter
+from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import desc, func, select
-from sqlalchemy.orm import Session
 
-from app.anomaly import score_event
-from app.database import Base, engine, get_db
-from app.models import Alert, AnomalyScore, Event
-from app.schemas import (
-    AlertRead,
-    AnomalyScoreRead,
-    AnomalyScoreRequest,
-    EventCreate,
-    EventRead,
-    MetricsSummary,
-)
+from app.api.router import api_router
+from app.core.config import settings
+from app.core.logging import clear_request_id, configure_logging, get_logger, set_request_id
+from app.db.base import Base
+from app.db.session import engine
+from app.models import Alert, AlertNote, AnomalyScore, Event
+
+configure_logging()
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    logger.info(
+        "startup_complete app=%s version=%s models=%s",
+        settings.APP_NAME,
+        settings.APP_VERSION,
+        [
+            Event.__tablename__,
+            AnomalyScore.__tablename__,
+            Alert.__tablename__,
+            AlertNote.__tablename__,
+        ],
+    )
     yield
 
 
-app = FastAPI(title="Pulse AI API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,6 +41,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(api_router, prefix=settings.API_PREFIX)
+
+
+@app.middleware("http")
+async def trace_request(request: Request, call_next):
+    request_id = request.headers.get("x-request-id", str(uuid4()))
+    set_request_id(request_id)
+    started = perf_counter()
+    try:
+        response = await call_next(request)
+    finally:
+        duration_ms = round((perf_counter() - started) * 1000.0, 2)
+        logger.info(
+            "request method=%s path=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            duration_ms,
+        )
+    response.headers["x-request-id"] = request_id
+    clear_request_id()
+    return response
 
 
 @app.get("/health")
@@ -40,104 +69,6 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/api/events", response_model=EventRead)
-def create_event(payload: EventCreate, db: Session = Depends(get_db)) -> Event:
-    event = Event(**payload.model_dump())
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
-
-
-@app.get("/api/events", response_model=list[EventRead])
-def list_events(
-    limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
-    db: Session = Depends(get_db),
-) -> list[Event]:
-    events = db.scalars(
-        select(Event).order_by(desc(Event.created_at)).limit(limit).offset(offset)
-    ).all()
-    return list(events)
-
-
-@app.post("/api/anomaly/score", response_model=AnomalyScoreRead)
-def score_anomaly(payload: AnomalyScoreRequest, db: Session = Depends(get_db)) -> AnomalyScoreRead:
-    event = db.get(Event, payload.event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail="event not found")
-
-    try:
-        score, alert = score_event(db, event, threshold=payload.threshold)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    db.commit()
-    db.refresh(score)
-
-    output = AnomalyScoreRead.model_validate(score)
-    output.alert_id = alert.id if alert else None
-    return output
-
-
-@app.get("/api/anomaly/{event_id}", response_model=AnomalyScoreRead)
-def get_latest_event_score(event_id: int, db: Session = Depends(get_db)) -> AnomalyScoreRead:
-    score = db.scalars(
-        select(AnomalyScore)
-        .where(AnomalyScore.event_id == event_id)
-        .order_by(desc(AnomalyScore.created_at))
-        .limit(1)
-    ).first()
-    if score is None:
-        raise HTTPException(status_code=404, detail="anomaly score not found")
-
-    output = AnomalyScoreRead.model_validate(score)
-    output.alert_id = score.alert.id if score.alert else None
-    return output
-
-
-@app.get("/api/alerts", response_model=list[AlertRead])
-def list_alerts(status: str | None = None, db: Session = Depends(get_db)) -> list[Alert]:
-    query = select(Alert).order_by(desc(Alert.created_at))
-    if status:
-        query = query.where(Alert.status == status)
-    return list(db.scalars(query).all())
-
-
-@app.get("/api/alerts/{alert_id}", response_model=AlertRead)
-def get_alert(alert_id: int, db: Session = Depends(get_db)) -> Alert:
-    alert = db.get(Alert, alert_id)
-    if alert is None:
-        raise HTTPException(status_code=404, detail="alert not found")
-    return alert
-
-
-@app.get("/api/metrics/summary", response_model=MetricsSummary)
-def metrics_summary(db: Session = Depends(get_db)) -> MetricsSummary:
-    total_events = db.scalar(select(func.count(Event.id))) or 0
-    total_scores = db.scalar(select(func.count(AnomalyScore.id))) or 0
-    total_alerts = db.scalar(select(func.count(Alert.id))) or 0
-    open_alerts = db.scalar(select(func.count(Alert.id)).where(Alert.status == "open")) or 0
-    avg_combined_score = db.scalar(select(func.avg(AnomalyScore.combined_score))) or 0.0
-
-    cutoff = datetime.now(UTC) - timedelta(hours=1)
-    events_last_hour = (
-        db.scalar(select(func.count(Event.id)).where(Event.created_at >= cutoff)) or 0
-    )
-
-    top_sources_rows = db.execute(
-        select(Event.source_id, func.count(Event.id).label("count"))
-        .group_by(Event.source_id)
-        .order_by(desc("count"))
-        .limit(5)
-    ).all()
-
-    return MetricsSummary(
-        total_events=total_events,
-        total_scores=total_scores,
-        total_alerts=total_alerts,
-        open_alerts=open_alerts,
-        avg_combined_score=round(float(avg_combined_score), 6),
-        events_last_hour=events_last_hour,
-        top_sources=[{"source_id": row.source_id, "count": row.count} for row in top_sources_rows],
-    )
+@app.get("/ready")
+def ready() -> dict[str, str]:
+    return {"status": "ready"}
