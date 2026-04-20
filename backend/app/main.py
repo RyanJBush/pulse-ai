@@ -23,7 +23,12 @@ async def lifespan(_: FastAPI):
         "startup_complete app=%s version=%s models=%s",
         settings.APP_NAME,
         settings.APP_VERSION,
-        [Event.__tablename__, AnomalyScore.__tablename__, Alert.__tablename__, AlertNote.__tablename__],
+        [
+            Event.__tablename__,
+            AnomalyScore.__tablename__,
+            Alert.__tablename__,
+            AlertNote.__tablename__,
+        ],
     )
     yield
 

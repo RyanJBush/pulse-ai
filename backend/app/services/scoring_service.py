@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import math
-from datetime import datetime
+from datetime import UTC, datetime
 from statistics import mean, pstdev
 
 import numpy as np
@@ -95,7 +94,9 @@ class ScoringService:
             return 0.0
         minute_bucket = timestamp.minute
         seasonal_samples = [
-            sample for sample, sample_ts in history_pairs if abs(sample_ts.minute - minute_bucket) <= 2
+            sample
+            for sample, sample_ts in history_pairs
+            if abs(sample_ts.minute - minute_bucket) <= 2
         ]
         if len(seasonal_samples) < 5:
             return 0.0
@@ -128,7 +129,7 @@ class ScoringService:
     ) -> ScoreResponse:
         signal_type = (payload.signal_type or payload.event_type).strip()
         value = self._extract_value(payload.payload)
-        scored_at = event_timestamp or datetime.utcnow()
+        scored_at = event_timestamp or datetime.now(UTC).replace(tzinfo=None)
         history_pairs = self._load_history(
             source=payload.source,
             signal_type=signal_type,
@@ -148,16 +149,16 @@ class ScoringService:
             "rolling": round(rolling_score, 4),
             "seasonal": round(seasonal_score, 4),
         }
-        combined = round(
+        weighted_combined = (
             (profile["z_score"] * z_score)
             + (profile["isolation"] * isolation_score)
             + (profile["rolling"] * rolling_score)
-            + (profile["seasonal"] * seasonal_score),
-            4,
+            + (profile["seasonal"] * seasonal_score)
         )
+        combined = round(max(weighted_combined, max(detector_scores.values()) * 0.85), 4)
         dynamic_threshold = round(self._dynamic_threshold(history, signal_type), 4)
         confidence_score = round(min(1.0, 0.35 + (len(history) / 500) * 0.65), 4)
-        is_anomalous = combined >= dynamic_threshold
+        is_anomalous = combined >= dynamic_threshold or abs(z_value) >= 3.0 or rolling_score >= 0.9
 
         reason_codes: list[str] = []
         if abs(z_value) >= 2.5:

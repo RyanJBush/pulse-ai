@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -26,7 +26,9 @@ class AlertService:
         cooldown_key: str | None = None,
     ) -> Alert | None:
         if cooldown_key:
-            cutoff = datetime.utcnow() - timedelta(seconds=settings.ALERT_COOLDOWN_SECONDS)
+            cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(
+                seconds=settings.ALERT_COOLDOWN_SECONDS
+            )
             recent = self.db.scalars(
                 select(Alert)
                 .where(Alert.cooldown_key == cooldown_key)
@@ -52,13 +54,18 @@ class AlertService:
             message=message,
             status="new",
             cooldown_key=cooldown_key,
-            updated_at=datetime.utcnow(),
-            last_transition_at=datetime.utcnow(),
+            updated_at=datetime.now(UTC).replace(tzinfo=None),
+            last_transition_at=datetime.now(UTC).replace(tzinfo=None),
         )
         self.db.add(alert)
         self.db.commit()
         self.db.refresh(alert)
-        logger.warning("alert_created event_id=%s severity=%s alert_id=%s", event_id, severity, alert.id)
+        logger.warning(
+            "alert_created event_id=%s severity=%s alert_id=%s",
+            event_id,
+            severity,
+            alert.id,
+        )
         return alert
 
     def list_alerts(self, limit: int = 50, status: str | None = None) -> list[AlertRead]:
@@ -80,8 +87,8 @@ class AlertService:
 
         old_status = alert.status
         alert.status = status
-        alert.updated_at = datetime.utcnow()
-        alert.last_transition_at = datetime.utcnow()
+        alert.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        alert.last_transition_at = datetime.now(UTC).replace(tzinfo=None)
         self.db.add(alert)
 
         if note:
@@ -89,7 +96,12 @@ class AlertService:
 
         self.db.commit()
         self.db.refresh(alert)
-        logger.info("alert_status_changed alert_id=%s from=%s to=%s", alert.id, old_status, alert.status)
+        logger.info(
+            "alert_status_changed alert_id=%s from=%s to=%s",
+            alert.id,
+            old_status,
+            alert.status,
+        )
         return AlertRead.model_validate(alert)
 
     def add_note(self, alert_id: int, author: str, note: str) -> AlertNoteRead:
@@ -108,5 +120,9 @@ class AlertService:
         alert = self.db.get(Alert, alert_id)
         if alert is None:
             raise HTTPException(status_code=404, detail="alert not found")
-        stmt = select(AlertNote).where(AlertNote.alert_id == alert_id).order_by(AlertNote.created_at.asc())
+        stmt = (
+            select(AlertNote)
+            .where(AlertNote.alert_id == alert_id)
+            .order_by(AlertNote.created_at.asc())
+        )
         return [AlertNoteRead.model_validate(item) for item in self.db.scalars(stmt).all()]

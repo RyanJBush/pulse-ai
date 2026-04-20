@@ -16,7 +16,10 @@ class MetricsService:
     def kpi_summary(self) -> KpiSummary:
         total_scores = self.db.scalar(select(func.count(AnomalyScore.id))) or 0
         anomalous_scores = (
-            self.db.scalar(select(func.count(AnomalyScore.id)).where(AnomalyScore.is_anomalous.is_(True))) or 0
+            self.db.scalar(
+                select(func.count(AnomalyScore.id)).where(AnomalyScore.is_anomalous.is_(True))
+            )
+            or 0
         )
         alert_count = self.db.scalar(select(func.count(Alert.id))) or 0
         high_severity = (
@@ -30,10 +33,16 @@ class MetricsService:
         avg_latency = self.db.scalar(select(func.avg(AnomalyScore.scoring_latency_ms))) or 0.0
 
         cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=5)
-        recent_events = self.db.scalar(select(func.count(Event.id)).where(Event.created_at >= cutoff)) or 0
+        recent_events = (
+            self.db.scalar(select(func.count(Event.id)).where(Event.created_at >= cutoff)) or 0
+        )
         throughput_per_minute = round(float(recent_events) / 5.0, 4)
 
-        anomaly_rate = 0.0 if total_scores == 0 else round(float(anomalous_scores) / float(total_scores), 4)
+        anomaly_rate = (
+            0.0
+            if total_scores == 0
+            else round(float(anomalous_scores) / float(total_scores), 4)
+        )
         return KpiSummary(
             anomaly_rate=anomaly_rate,
             alert_count=alert_count,
@@ -95,7 +104,11 @@ class MetricsService:
             for code in row[0] or []:
                 reason_code_distribution[code] = reason_code_distribution.get(code, 0) + 1
 
-        anomaly_rate = 0.0 if total_events == 0 else round(float(anomalous_events) / float(total_events), 4)
+        anomaly_rate = (
+            0.0
+            if total_events == 0
+            else round(float(anomalous_events) / float(total_events), 4)
+        )
         return EntityDrilldownMetrics(
             entity_id=entity_id,
             total_events=total_events,

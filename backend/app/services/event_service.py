@@ -41,7 +41,7 @@ class EventService:
 
     def ingest_event(self, payload: EventCreate) -> EventIngestResponse:
         signal_type = payload.signal_type or payload.event_type
-        event_timestamp = payload.event_timestamp or datetime.utcnow()
+        event_timestamp = payload.event_timestamp or datetime.now(UTC).replace(tzinfo=None)
         event = Event(
             source=payload.source,
             event_type=payload.event_type,
@@ -76,7 +76,11 @@ class EventService:
         )
         score_latency_ms = round((time.perf_counter() - score_started) * 1000.0, 4)
 
-        drift_hook = "watch" if score.confidence_score > 0.8 and score.combined_score > 0.7 else "stable"
+        drift_hook = (
+            "watch"
+            if score.confidence_score > 0.8 and score.combined_score > 0.7
+            else "stable"
+        )
         db_score = AnomalyScore(
             event_id=event.id,
             z_score=score.z_score,
@@ -103,7 +107,10 @@ class EventService:
                 event_id=event.id,
                 anomaly_score_id=db_score.id,
                 severity=score.severity,
-                message=f"Anomalous event detected: source={event.source}, signal={event.signal_type}",
+                message=(
+                    "Anomalous event detected: "
+                    f"source={event.source}, signal={event.signal_type}"
+                ),
                 cooldown_key=f"{event.entity_id}:{event.signal_type}:{score.severity}",
             )
             alert_id = alert.id if alert else None

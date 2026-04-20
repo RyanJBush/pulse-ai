@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String
@@ -29,9 +29,23 @@ class Alert(Base):
     status: Mapped[str] = mapped_column(String(32), default="new", index=True)
     assigned_owner: Mapped[str | None] = mapped_column(String(128), nullable=True)
     cooldown_key: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    last_transition_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        index=True,
+    )
+    last_transition_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        index=True,
+    )
 
     event: Mapped["Event"] = relationship(back_populates="alerts")
-    notes: Mapped[list["AlertNote"]] = relationship(back_populates="alert", cascade="all, delete-orphan")
+    notes: Mapped[list["AlertNote"]] = relationship(
+        back_populates="alert",
+        cascade="all, delete-orphan",
+    )
