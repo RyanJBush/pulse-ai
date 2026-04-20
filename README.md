@@ -1,72 +1,63 @@
-# Pulse AI Monorepo
+# Pulse AI
 
-Pulse AI is a production-oriented monorepo scaffold for a real-time anomaly detection platform.
+Pulse AI is a production-style MVP monorepo for real-time anomaly detection. It ingests events, scores them with a blended Z-score + Isolation Forest approach, generates alerts, and exposes dashboards for monitoring.
 
-## Stack
-- **Backend:** FastAPI + SQLAlchemy
-- **Frontend:** React + Vite scaffold with layout and pages
-- **Database:** PostgreSQL
-- **ML Layer:** Z-score + Isolation Forest anomaly detection
-- **DevOps:** Docker Compose + GitHub Actions CI
+## Monorepo layout
 
-## Features Implemented
-- Event ingestion pipeline with persistence and structured logging.
-- Hybrid anomaly detection using statistical Z-score and Isolation Forest.
-- Anomaly scoring API for model-only scoring requests.
-- Alert generation for anomalous events.
-- Unit/API tests for ingestion, scoring, and alert generation.
+- `backend/` – FastAPI API, SQLAlchemy models, anomaly scoring logic, pytest + ruff setup
+- `frontend/` – React + Vite + Tailwind + Recharts UI
+- `docs/` – lightweight architecture documentation
+- `.github/workflows/ci.yml` – GitHub Actions pipeline for backend/frontend linting, tests, and build
 
-## Repository Structure
+## Backend API
 
-```text
-pulse-ai/
-├── backend/
-├── frontend/
-├── docs/
-├── .github/workflows/ci.yml
-├── docker-compose.yml
-└── Makefile
-```
-
-## Quick Start
-
-### 1) Local (without Docker)
-
-```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Frontend (new terminal)
-cd frontend
-npm install
-npm run dev
-```
-
-### 2) Docker Compose
-
-```bash
-make up
-```
-
-## Core API Endpoints
-- `POST /api/v1/events/ingest`
-- `GET /api/v1/events`
-- `POST /api/v1/scoring/anomaly`
-- `GET /api/v1/alerts`
 - `GET /health`
+- `POST /api/events`
+- `GET /api/events`
+- `POST /api/anomaly/score`
+- `GET /api/anomaly/{event_id}`
+- `GET /api/alerts`
+- `GET /api/alerts/{id}`
+- `GET /api/metrics/summary`
 
-## Test
+Data model tables:
+- `events`
+- `anomaly_scores`
+- `alerts`
+
+## Local development
+
+### Backend
 
 ```bash
-cd backend
-pytest -q
+pip install -e ./backend[dev]
+uvicorn app.main:app --app-dir backend --reload
 ```
 
-## Next Steps
-- Add Alembic migrations and schema versioning.
-- Add alert notification channels (Slack, PagerDuty, email).
-- Add frontend views for scoring breakdown and alert triage.
-- Add authn/authz and multi-tenant support.
+### Frontend
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run dev
+```
+
+Set `VITE_API_BASE_URL` if the backend is not on `http://localhost:8000`.
+
+## Docker compose
+
+```bash
+docker compose up --build
+```
+
+Services:
+- Postgres: `localhost:5432`
+- Backend API: `localhost:8000`
+- Frontend: `localhost:4173`
+
+## Quality checks
+
+```bash
+make lint
+make test
+make build
+```

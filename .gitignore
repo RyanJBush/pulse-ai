@@ -205,8 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-
-# Frontend artifacts
 frontend/node_modules/
 frontend/dist/
-backend/test.db
+backend/.pytest_cache/
+backend/.ruff_cache/
+*.db

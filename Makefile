@@ -1,22 +1,22 @@
-.PHONY: install backend-install frontend-install lint test up down
-
-install: backend-install frontend-install
+.PHONY: backend-install frontend-install lint test build format
 
 backend-install:
-	cd backend && python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+	pip install -e ./backend[dev]
 
 frontend-install:
-	cd frontend && npm install
+	npm --prefix frontend install
 
 lint:
-	cd backend && . .venv/bin/activate && ruff check app
-	cd frontend && npm run lint
+	ruff check backend/app backend/tests
+	npm --prefix frontend run lint
+	npm --prefix frontend run format:check
 
 test:
-	cd backend && . .venv/bin/activate && pytest
+	pytest backend/tests
 
-up:
-	docker compose up --build -d
+build:
+	npm --prefix frontend run build
 
-down:
-	docker compose down -v
+format:
+	ruff format backend/app backend/tests
+	npm --prefix frontend run format

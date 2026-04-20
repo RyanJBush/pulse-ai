@@ -1,16 +1,7 @@
-# Architecture Overview
+# Pulse AI MVP Architecture
 
-Pulse AI is organized as a monorepo with clear domain boundaries:
-
-- **backend/**: FastAPI API layer, business services, SQLAlchemy models.
-- **frontend/**: React dashboard for monitoring events and alerts.
-- **PostgreSQL**: Primary transactional store for events, anomaly scores, and alerts.
-- **ML Detection Layer**: Z-score + Isolation Forest scoring service.
-
-## Runtime Flow
-1. Client sends event to `POST /api/v1/events/ingest`.
-2. Event is persisted in `events` table.
-3. Scoring service calculates Z-score and Isolation Forest score from historical values.
-4. Combined anomaly score is computed and stored in `anomaly_scores`.
-5. If event is anomalous, an alert is written to `alerts`.
-6. Frontend consumes `events` and `alerts` APIs to render dashboards.
+- **Backend**: FastAPI + SQLAlchemy for ingestion, scoring, alerting, and aggregate metrics.
+- **ML scoring**: blended Z-score and Isolation Forest score persisted per event.
+- **Storage**: PostgreSQL tables: `events`, `anomaly_scores`, `alerts`.
+- **Frontend**: React + Vite + Tailwind dashboard with Recharts visualizations and source filters.
+- **Runtime**: docker-compose orchestrates Postgres, backend API, and frontend UI.

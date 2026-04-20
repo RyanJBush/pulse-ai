@@ -1,11 +1,13 @@
-FROM node:22-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package*.json /app/
 RUN npm install
 
-COPY . .
+COPY . /app
+RUN npm run build
 
-EXPOSE 5173
-CMD ["npm", "run", "dev"]
+EXPOSE 4173
+
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
