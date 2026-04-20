@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pulse-ai-backend"
+version = "0.1.0"
+description = "Pulse AI backend service"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0,<1.0.0",
+  "uvicorn[standard]>=0.34.0,<1.0.0",
+  "sqlalchemy>=2.0.38,<3.0.0",
+  "psycopg2-binary>=2.9.10,<3.0.0",
+  "scikit-learn>=1.6.1,<2.0.0",
+  "numpy>=2.2.0,<3.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0,<9.0.0",
+  "httpx>=0.28.0,<1.0.0",
+  "ruff>=0.11.0,<1.0.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
