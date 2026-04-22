@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class EventCreate(BaseModel):
     source: str = Field(..., min_length=1, max_length=255)
+    workspace_id: str = Field(default="default", min_length=1, max_length=64)
     event_type: str = Field(..., min_length=1, max_length=255)
     payload: dict = Field(default_factory=dict)
     value: float | None = None
@@ -16,6 +17,7 @@ class EventCreate(BaseModel):
 class EventRead(BaseModel):
     id: int
     source: str
+    workspace_id: str
     event_type: str
     signal_type: str
     entity_id: str
@@ -46,6 +48,7 @@ class ReplayRequest(BaseModel):
     seed: int = 42
     count: int = Field(default=120, ge=1, le=1000)
     source: str = "demo-stream"
+    workspace_id: str = "default"
     event_type: str = "latency"
     entity_id: str = "entity-demo-1"
     signal_type: str = "latency"
@@ -60,3 +63,24 @@ class ReplayResponse(BaseModel):
     anomalous: int
     alerts_created: int
     suppressed_alerts: int
+
+
+class BufferEnqueueRequest(BaseModel):
+    events: list[EventCreate]
+
+
+class BufferEnqueueResponse(BaseModel):
+    accepted: int
+    queued: int
+
+
+class BufferFlushResponse(BaseModel):
+    processed: int
+    anomalies: int
+    alerts_created: int
+
+
+class BufferStatsResponse(BaseModel):
+    queued: int
+    total_enqueued: int
+    total_flushed: int

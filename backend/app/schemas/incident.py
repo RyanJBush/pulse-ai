@@ -3,37 +3,37 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class AlertRead(BaseModel):
+class IncidentRead(BaseModel):
     id: int
-    event_id: int
     workspace_id: str
-    incident_id: int | None = None
-    anomaly_score_id: int | None = None
-    severity: str
-    message: str
+    group_key: str
     status: str
+    severity: str
+    title: str
     assigned_owner: str | None = None
-    updated_at: datetime
-    last_transition_at: datetime
+    suppressed_alerts_count: int
+    evidence: dict
     created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-class AlertStatusUpdate(BaseModel):
+class IncidentStatusUpdate(BaseModel):
     status: str = Field(..., min_length=2, max_length=32)
-    author: str = Field(default="system", min_length=1, max_length=120)
+    actor: str = Field(default="system", min_length=1, max_length=120)
+    assigned_owner: str | None = Field(default=None, max_length=120)
     note: str | None = Field(default=None, max_length=1000)
 
 
-class AlertNoteCreate(BaseModel):
-    note: str = Field(..., min_length=1, max_length=2000)
+class IncidentNoteCreate(BaseModel):
     author: str = Field(default="system", min_length=1, max_length=120)
+    note: str = Field(..., min_length=1, max_length=2000)
 
 
-class AlertNoteRead(BaseModel):
+class IncidentNoteRead(BaseModel):
     id: int
-    alert_id: int
+    incident_id: int
     author: str
     note: str
     created_at: datetime

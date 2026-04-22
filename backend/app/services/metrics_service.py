@@ -1,8 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.cache import TTLCache
+from app.core.config import settings
 from app.models.alert import Alert
 from app.models.anomaly_score import AnomalyScore
 from app.models.event import Event
@@ -10,10 +12,15 @@ from app.schemas.metrics import EntityDrilldownMetrics, KpiSummary
 
 
 class MetricsService:
+    _summary_cache: TTLCache[KpiSummary] = TTLCache(ttl_seconds=settings.CACHE_TTL_SECONDS)
+
     def __init__(self, db: Session):
         self.db = db
 
     def kpi_summary(self) -> KpiSummary:
+        cached = self._summary_cache.get("kpi_summary")
+        if cached is not None:
+            return cached
         total_scores = self.db.scalar(select(func.count(AnomalyScore.id))) or 0
         anomalous_scores = (
             self.db.scalar(
@@ -32,7 +39,7 @@ class MetricsService:
         )
         avg_latency = self.db.scalar(select(func.avg(AnomalyScore.scoring_latency_ms))) or 0.0
 
-        cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=5)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=5)
         recent_events = (
             self.db.scalar(select(func.count(Event.id)).where(Event.created_at >= cutoff)) or 0
         )
@@ -43,13 +50,15 @@ class MetricsService:
             if total_scores == 0
             else round(float(anomalous_scores) / float(total_scores), 4)
         )
-        return KpiSummary(
+        summary = KpiSummary(
             anomaly_rate=anomaly_rate,
             alert_count=alert_count,
             throughput_per_minute=throughput_per_minute,
             high_severity_anomalies=high_severity,
             avg_scoring_latency_ms=round(float(avg_latency), 4),
         )
+        self._summary_cache.set("kpi_summary", summary)
+        return summary
 
     def entity_drilldown(self, entity_id: str) -> EntityDrilldownMetrics:
         total_events = (

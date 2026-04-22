@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     ALERT_COOLDOWN_SECONDS: int = 300
     DEFAULT_REPLAY_COUNT: int = 120
     REPLAY_SPIKE_MULTIPLIER: float = 4.5
+    CACHE_TTL_SECONDS: int = 30
+    BACKGROUND_JOB_INTERVAL_SECONDS: int = 60
+    RATE_LIMIT_PER_MINUTE: int = 240
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
