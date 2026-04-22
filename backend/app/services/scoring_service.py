@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from statistics import mean, pstdev
 
 import numpy as np
@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.models.detector_config import DetectorConfig
 from app.models.event import Event
 from app.schemas.scoring import ScoreRequest, ScoreResponse
 
@@ -44,11 +45,12 @@ class ScoringService:
             return 0.0
 
     def _load_history(
-        self, source: str, signal_type: str, entity_id: str, limit: int = 500
+        self, source: str, workspace_id: str, signal_type: str, entity_id: str, limit: int = 500
     ) -> list[tuple[float, datetime]]:
         stmt = (
             select(Event.value, Event.event_timestamp)
             .where(Event.source == source)
+            .where(Event.workspace_id == workspace_id)
             .where(Event.signal_type == signal_type)
             .where(Event.entity_id == entity_id)
             .order_by(Event.event_timestamp.desc())
@@ -108,6 +110,16 @@ class ScoringService:
 
     def _profile_for(self, signal_type: str) -> tuple[str, dict[str, float]]:
         normalized = signal_type.lower().strip()
+        detector_config = self.db.scalars(
+            select(DetectorConfig).where(DetectorConfig.signal_type == normalized)
+        ).first()
+        if detector_config and detector_config.enabled:
+            return normalized, {
+                "z_score": detector_config.z_weight,
+                "isolation": detector_config.isolation_weight,
+                "rolling": detector_config.rolling_weight,
+                "seasonal": detector_config.seasonal_weight,
+            }
         for key, profile in self._detector_profiles.items():
             if key != "default" and key in normalized:
                 return key, profile
@@ -129,9 +141,10 @@ class ScoringService:
     ) -> ScoreResponse:
         signal_type = (payload.signal_type or payload.event_type).strip()
         value = self._extract_value(payload.payload)
-        scored_at = event_timestamp or datetime.now(UTC).replace(tzinfo=None)
+        scored_at = event_timestamp or datetime.now(timezone.utc).replace(tzinfo=None)
         history_pairs = self._load_history(
             source=payload.source,
+            workspace_id=payload.workspace_id,
             signal_type=signal_type,
             entity_id=payload.entity_id,
         )

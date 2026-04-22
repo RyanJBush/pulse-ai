@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class ScoreRequest(BaseModel):
     source: str
+    workspace_id: str = "default"
     event_type: str
     payload: dict
     entity_id: str = "global"

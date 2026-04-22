@@ -1,16 +1,21 @@
 import math
 import random
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.ingestion_buffer import buffer_instance
 from app.core.logging import get_logger
 from app.models.anomaly_score import AnomalyScore
 from app.models.event import Event
 from app.schemas.event import (
+    BufferEnqueueRequest,
+    BufferEnqueueResponse,
+    BufferFlushResponse,
+    BufferStatsResponse,
     EventCreate,
     EventIngestResponse,
     EventRead,
@@ -41,9 +46,12 @@ class EventService:
 
     def ingest_event(self, payload: EventCreate) -> EventIngestResponse:
         signal_type = payload.signal_type or payload.event_type
-        event_timestamp = payload.event_timestamp or datetime.now(UTC).replace(tzinfo=None)
+        event_timestamp = payload.event_timestamp or datetime.now(timezone.utc).replace(
+            tzinfo=None
+        )
         event = Event(
             source=payload.source,
+            workspace_id=payload.workspace_id,
             event_type=payload.event_type,
             signal_type=signal_type,
             entity_id=payload.entity_id,
@@ -67,6 +75,7 @@ class EventService:
         score = self.scoring_service.score_payload(
             ScoreRequest(
                 source=event.source,
+                workspace_id=event.workspace_id,
                 event_type=event.event_type,
                 signal_type=event.signal_type,
                 entity_id=event.entity_id,
@@ -105,13 +114,19 @@ class EventService:
         if score.is_anomalous:
             alert = self.alert_service.create_alert(
                 event_id=event.id,
+                workspace_id=event.workspace_id,
                 anomaly_score_id=db_score.id,
                 severity=score.severity,
                 message=(
                     "Anomalous event detected: "
                     f"source={event.source}, signal={event.signal_type}"
                 ),
-                cooldown_key=f"{event.entity_id}:{event.signal_type}:{score.severity}",
+                cooldown_key=f"{event.entity_id}:{event.signal_type}",
+                evidence={
+                    "reason_codes": score.reason_codes,
+                    "confidence_score": score.confidence_score,
+                    "dynamic_threshold": score.dynamic_threshold,
+                },
             )
             alert_id = alert.id if alert else None
 
@@ -130,12 +145,20 @@ class EventService:
             alert_id=alert_id,
         )
 
-    def list_events(self, limit: int = 100) -> list[EventRead]:
-        stmt = select(Event).order_by(Event.created_at.desc()).limit(limit)
+    def list_events(
+        self, limit: int = 100, offset: int = 0, sort_desc: bool = True, workspace_id: str | None = None
+    ) -> list[EventRead]:
+        ordering = Event.created_at.desc() if sort_desc else Event.created_at.asc()
+        stmt = select(Event).order_by(ordering)
+        if workspace_id:
+            stmt = stmt.where(Event.workspace_id == workspace_id)
+        stmt = stmt.offset(offset).limit(limit)
         return [EventRead.model_validate(item) for item in self.db.scalars(stmt).all()]
 
     def replay_seeded_stream(self, payload: ReplayRequest) -> ReplayResponse:
-        base_time = payload.start_at or datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+        base_time = payload.start_at or (
+            datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        )
         rng = random.Random(payload.seed)
 
         events_to_replay: list[EventCreate] = []
@@ -146,15 +169,24 @@ class EventService:
             value = 60.0 + seasonal_component + noise
             if payload.inject_spike_every > 0 and idx > 0 and idx % payload.inject_spike_every == 0:
                 value = value * settings.REPLAY_SPIKE_MULTIPLIER
+                is_injected_anomaly = True
+            else:
+                is_injected_anomaly = False
             events_to_replay.append(
                 EventCreate(
                     source=payload.source,
+                    workspace_id=payload.workspace_id,
                     event_type=payload.event_type,
                     signal_type=payload.signal_type,
                     entity_id=payload.entity_id,
                     event_timestamp=ts,
                     value=round(value, 4),
-                    payload={"value": round(value, 4), "seed": payload.seed, "replay_index": idx},
+                    payload={
+                        "value": round(value, 4),
+                        "seed": payload.seed,
+                        "replay_index": idx,
+                        "is_injected_anomaly": is_injected_anomaly,
+                    },
                 )
             )
 
@@ -191,3 +223,33 @@ class EventService:
             alerts_created=len(alert_ids),
             suppressed_alerts=suppressed_alerts,
         )
+
+    def buffer_enqueue(self, payload: BufferEnqueueRequest) -> BufferEnqueueResponse:
+        queued = buffer_instance.enqueue_many(payload.events)
+        logger.info("buffer_enqueued accepted=%s queued=%s", len(payload.events), queued)
+        return BufferEnqueueResponse(accepted=len(payload.events), queued=queued)
+
+    def buffer_flush(self, limit: int | None = None) -> BufferFlushResponse:
+        drained = buffer_instance.drain(limit=limit)
+        anomalies = 0
+        alerts_created = 0
+        for event in drained:
+            result = self.ingest_event(event)
+            if result.is_anomalous:
+                anomalies += 1
+            if result.alert_id is not None:
+                alerts_created += 1
+        logger.info(
+            "buffer_flushed processed=%s anomalies=%s alerts_created=%s",
+            len(drained),
+            anomalies,
+            alerts_created,
+        )
+        return BufferFlushResponse(
+            processed=len(drained),
+            anomalies=anomalies,
+            alerts_created=alerts_created,
+        )
+
+    def buffer_stats(self) -> BufferStatsResponse:
+        return BufferStatsResponse(**buffer_instance.stats())

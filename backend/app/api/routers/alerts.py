@@ -11,10 +11,19 @@ router = APIRouter()
 @router.get("", response_model=list[AlertRead])
 def list_alerts(
     limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=5000),
     status: str | None = Query(default=None),
+    sort_desc: bool = Query(default=True),
+    workspace_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[AlertRead]:
-    return AlertService(db).list_alerts(limit=limit, status=status)
+    return AlertService(db).list_alerts(
+        limit=limit,
+        offset=offset,
+        status=status,
+        sort_desc=sort_desc,
+        workspace_id=workspace_id,
+    )
 
 
 @router.patch("/{alert_id}/status", response_model=AlertRead)

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, DateTime, Float, String
@@ -16,6 +16,7 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     source: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False, default="default", index=True)
     event_type: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     signal_type: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     entity_id: Mapped[str] = mapped_column(
@@ -28,12 +29,12 @@ class Event(Base):
     value: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, index=True)
     event_timestamp: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         index=True,
     )
 

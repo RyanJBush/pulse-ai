@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, String
@@ -31,7 +31,7 @@ class AnomalyScore(Base):
     details: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     event: Mapped["Event"] = relationship(back_populates="scores")

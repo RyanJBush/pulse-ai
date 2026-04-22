@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String
@@ -9,6 +9,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.alert_note import AlertNote
     from app.models.event import Event
+    from app.models.incident import Incident
 
 
 ALERT_STATUSES = {"new", "acknowledged", "investigating", "resolved", "suppressed"}
@@ -19,6 +20,10 @@ class Alert(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False, default="default", index=True)
+    incident_id: Mapped[int | None] = mapped_column(
+        ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     anomaly_score_id: Mapped[int | None] = mapped_column(
         ForeignKey("anomaly_scores.id", ondelete="SET NULL"),
         nullable=True,
@@ -31,20 +36,21 @@ class Alert(Base):
     cooldown_key: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         index=True,
     )
     last_transition_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         index=True,
     )
 
     event: Mapped["Event"] = relationship(back_populates="alerts")
+    incident: Mapped["Incident | None"] = relationship(back_populates="alerts")
     notes: Mapped[list["AlertNote"]] = relationship(
         back_populates="alert",
         cascade="all, delete-orphan",
