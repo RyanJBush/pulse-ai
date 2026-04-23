@@ -1,3 +1,35 @@
+WORKSPACE_A_LATENCIES = [
+    9.8,
+    10.0,
+    10.2,
+    9.9,
+    10.1,
+    10.0,
+    9.7,
+    10.3,
+    10.0,
+    9.9,
+    10.1,
+    9.8,
+    280.0,
+]
+WORKSPACE_B_LATENCIES = [
+    11.0,
+    10.8,
+    11.2,
+    10.9,
+    11.1,
+    10.7,
+    11.0,
+    10.9,
+    11.1,
+    10.8,
+    11.0,
+    10.9,
+    320.0,
+]
+
+
 def _ingest_latency(
     client, value: float, entity: str = "entity-inc-1", workspace_id: str = "default"
 ):
@@ -99,9 +131,14 @@ def test_incident_error_paths_and_workspace_filter(client):
     assert missing_notes.status_code == 404
     assert missing_notes.json()["detail"] == "incident not found"
 
-    for value in [9.8, 10.0, 10.2, 9.9, 10.1, 10.0, 9.7, 10.3, 10.0, 9.9, 10.1, 9.8, 280.0]:
-        _ingest_latency(client, value, entity="entity-inc-ws-a")
-    for value in [11.0, 10.8, 11.2, 10.9, 11.1, 10.7, 11.0, 10.9, 11.1, 10.8, 11.0, 10.9, 320.0]:
+    for value in WORKSPACE_A_LATENCIES:
+        _ingest_latency(
+            client,
+            value,
+            entity="entity-inc-ws-a",
+            workspace_id="default",
+        )
+    for value in WORKSPACE_B_LATENCIES:
         _ingest_latency(
             client,
             value,
