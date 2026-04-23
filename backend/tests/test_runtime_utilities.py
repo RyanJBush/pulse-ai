@@ -128,7 +128,9 @@ def test_background_job_runner_loop_and_refresh_hook(monkeypatch):
     calls = {"refresh": 0, "drift": 0}
     messages = []
 
-    monkeypatch.setattr(runner, "_run_detector_refresh_hook", lambda: calls.__setitem__("refresh", 1))
+    monkeypatch.setattr(
+        runner, "_run_detector_refresh_hook", lambda: calls.__setitem__("refresh", 1)
+    )
     monkeypatch.setattr(runner, "_run_drift_hook", lambda: calls.__setitem__("drift", 1))
     monkeypatch.setattr(runner._stop, "wait", lambda _interval: runner._stop.set())
     runner._loop()
@@ -138,7 +140,7 @@ def test_background_job_runner_loop_and_refresh_hook(monkeypatch):
         "app.core.background_jobs.logger.info",
         lambda message, *args: messages.append(message % args if args else message),
     )
-    runner._run_detector_refresh_hook()
+    BackgroundJobRunner(interval_seconds=1)._run_detector_refresh_hook()
     assert any("detector_refresh_hook status=ok" in message for message in messages)
 
 

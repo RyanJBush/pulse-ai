@@ -70,3 +70,21 @@ def test_rbac_blocks_low_privilege_for_governance(client):
         },
     )
     assert denied.status_code == 403
+
+
+def test_governance_detector_config_rejects_non_positive_total_weight(client):
+    response = client.put(
+        "/api/v1/governance/detectors",
+        headers={"x-role": "admin"},
+        json={
+            "signal_type": "latency",
+            "z_weight": 0.0,
+            "isolation_weight": 0.0,
+            "rolling_weight": 0.0,
+            "seasonal_weight": 0.0,
+            "enabled": True,
+            "actor": "admin-user",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "detector weights must sum to greater than 0"
