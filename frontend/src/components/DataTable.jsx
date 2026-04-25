@@ -1,4 +1,8 @@
-export default function DataTable({ columns, rows, emptyMessage = 'No records found.' }) {
+export default function DataTable({
+  columns,
+  rows,
+  emptyMessage = 'No records found.',
+}) {
   return (
     <div className="table-wrap panel">
       <table>
@@ -19,7 +23,9 @@ export default function DataTable({ columns, rows, emptyMessage = 'No records fo
               <tr key={row.id}>
                 {columns.map((column) => (
                   <td key={`${row.id}-${column.key}`}>
-                    {typeof column.render === 'function' ? column.render(row[column.key], row) : row[column.key]}
+                    {typeof column.render === 'function'
+                      ? column.render(row[column.key], row)
+                      : row[column.key]}
                   </td>
                 ))}
               </tr>
@@ -28,5 +34,5 @@ export default function DataTable({ columns, rows, emptyMessage = 'No records fo
         </tbody>
       </table>
     </div>
-  );
+  )
 }

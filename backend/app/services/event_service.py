@@ -46,9 +46,7 @@ class EventService:
 
     def ingest_event(self, payload: EventCreate) -> EventIngestResponse:
         signal_type = payload.signal_type or payload.event_type
-        event_timestamp = payload.event_timestamp or datetime.now(timezone.utc).replace(
-            tzinfo=None
-        )
+        event_timestamp = payload.event_timestamp or datetime.now(timezone.utc).replace(tzinfo=None)
         event = Event(
             source=payload.source,
             workspace_id=payload.workspace_id,
@@ -86,9 +84,7 @@ class EventService:
         score_latency_ms = round((time.perf_counter() - score_started) * 1000.0, 4)
 
         drift_hook = (
-            "watch"
-            if score.confidence_score > 0.8 and score.combined_score > 0.7
-            else "stable"
+            "watch" if score.confidence_score > 0.8 and score.combined_score > 0.7 else "stable"
         )
         db_score = AnomalyScore(
             event_id=event.id,
@@ -146,7 +142,11 @@ class EventService:
         )
 
     def list_events(
-        self, limit: int = 100, offset: int = 0, sort_desc: bool = True, workspace_id: str | None = None
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        sort_desc: bool = True,
+        workspace_id: str | None = None,
     ) -> list[EventRead]:
         ordering = Event.created_at.desc() if sort_desc else Event.created_at.asc()
         stmt = select(Event).order_by(ordering)

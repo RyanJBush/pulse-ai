@@ -14,7 +14,11 @@ from app.services.incident_service import IncidentService
 router = APIRouter()
 
 
-@router.get("", response_model=list[IncidentRead], dependencies=[Depends(require_role("admin", "operator", "analyst"))])
+@router.get(
+    "",
+    response_model=list[IncidentRead],
+    dependencies=[Depends(require_role("admin", "operator", "analyst"))],
+)
 def list_incidents(
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=500),
@@ -28,7 +32,11 @@ def list_incidents(
     )
 
 
-@router.patch("/{incident_id}", response_model=IncidentRead, dependencies=[Depends(require_role("admin", "operator"))])
+@router.patch(
+    "/{incident_id}",
+    response_model=IncidentRead,
+    dependencies=[Depends(require_role("admin", "operator"))],
+)
 def update_incident(
     incident_id: int,
     payload: IncidentStatusUpdate,
@@ -43,15 +51,26 @@ def update_incident(
     )
 
 
-@router.post("/{incident_id}/notes", response_model=IncidentNoteRead, dependencies=[Depends(require_role("admin", "operator", "analyst"))], status_code=201)
+@router.post(
+    "/{incident_id}/notes",
+    response_model=IncidentNoteRead,
+    dependencies=[Depends(require_role("admin", "operator", "analyst"))],
+    status_code=201,
+)
 def add_incident_note(
     incident_id: int,
     payload: IncidentNoteCreate,
     db: Session = Depends(get_db),
 ) -> IncidentNoteRead:
-    return IncidentService(db).add_note(incident_id=incident_id, author=payload.author, note=payload.note)
+    return IncidentService(db).add_note(
+        incident_id=incident_id, author=payload.author, note=payload.note
+    )
 
 
-@router.get("/{incident_id}/notes", response_model=list[IncidentNoteRead], dependencies=[Depends(require_role("admin", "operator", "analyst"))])
+@router.get(
+    "/{incident_id}/notes",
+    response_model=list[IncidentNoteRead],
+    dependencies=[Depends(require_role("admin", "operator", "analyst"))],
+)
 def list_incident_notes(incident_id: int, db: Session = Depends(get_db)) -> list[IncidentNoteRead]:
     return IncidentService(db).list_notes(incident_id=incident_id)
