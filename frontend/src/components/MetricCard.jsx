@@ -5,5 +5,5 @@ export default function MetricCard({ label, value, trend = '' }) {
       <h3>{value}</h3>
       {trend ? <span className="trend">{trend}</span> : null}
     </section>
-  );
+  )
 }

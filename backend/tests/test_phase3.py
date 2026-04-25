@@ -79,9 +79,7 @@ def test_incident_created_from_alert_and_note_workflow(client):
     assert update.json()["status"] == "investigating"
     assert update.json()["assigned_owner"] == "oncall-user"
 
-    notes = client.get(
-        f"/api/v1/incidents/{incident_id}/notes", headers={"x-role": "analyst"}
-    )
+    notes = client.get(f"/api/v1/incidents/{incident_id}/notes", headers={"x-role": "analyst"})
     assert notes.status_code == 200
     assert len(notes.json()) == 1
 
