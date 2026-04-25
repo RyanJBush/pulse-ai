@@ -2,6 +2,7 @@ import math
 import random
 import time
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.ingestion_buffer import buffer_instance
 from app.core.logging import get_logger
+from app.models.alert import Alert
 from app.models.anomaly_score import AnomalyScore
 from app.models.event import Event
 from app.schemas.event import (
@@ -19,8 +21,10 @@ from app.schemas.event import (
     EventCreate,
     EventIngestResponse,
     EventRead,
+    EventScoreRead,
     ReplayRequest,
     ReplayResponse,
+    ScoredEventRead,
 )
 from app.schemas.scoring import ScoreRequest
 from app.services.alert_service import AlertService
@@ -156,6 +160,8 @@ class EventService:
         return [EventRead.model_validate(item) for item in self.db.scalars(stmt).all()]
 
     def replay_seeded_stream(self, payload: ReplayRequest) -> ReplayResponse:
+        replay_run_id = str(uuid4())
+        started_at = datetime.now(timezone.utc).replace(tzinfo=None)
         base_time = payload.start_at or (
             datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
         )
@@ -210,19 +216,86 @@ class EventService:
                 suppressed_alerts += 1
 
         logger.info(
-            "replay_completed seed=%s count=%s anomalous=%s alerts=%s suppressed=%s",
+            "replay_completed run_id=%s seed=%s count=%s anomalous=%s alerts=%s suppressed=%s",
+            replay_run_id,
             payload.seed,
             payload.count,
             anomalous,
             len(alert_ids),
             suppressed_alerts,
         )
+        finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        duration_ms = round((finished_at - started_at).total_seconds() * 1000.0, 3)
         return ReplayResponse(
+            replay_run_id=replay_run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_ms=duration_ms,
             ingested=payload.count,
             anomalous=anomalous,
             alerts_created=len(alert_ids),
             suppressed_alerts=suppressed_alerts,
+            sample_alert_ids=sorted(alert_ids)[:10],
         )
+
+    def list_scored_events(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        sort_desc: bool = True,
+        workspace_id: str | None = None,
+        anomalous_only: bool = False,
+    ) -> list[ScoredEventRead]:
+        ordering = Event.created_at.desc() if sort_desc else Event.created_at.asc()
+        stmt = select(Event).order_by(ordering)
+        if workspace_id:
+            stmt = stmt.where(Event.workspace_id == workspace_id)
+        stmt = stmt.offset(offset).limit(limit)
+        events = self.db.scalars(stmt).all()
+
+        scored_events: list[ScoredEventRead] = []
+        for event in events:
+            score = self.db.scalars(
+                select(AnomalyScore)
+                .where(AnomalyScore.event_id == event.id)
+                .order_by(AnomalyScore.created_at.desc())
+                .limit(1)
+            ).first()
+            if anomalous_only and (score is None or not score.is_anomalous):
+                continue
+            alert = self.db.scalars(
+                select(Alert)
+                .where(Alert.event_id == event.id)
+                .order_by(Alert.created_at.desc())
+                .limit(1)
+            ).first()
+            scored_events.append(
+                ScoredEventRead(
+                    event=EventRead.model_validate(event),
+                    score=(
+                        EventScoreRead(
+                            z_score=score.z_score,
+                            isolation_score=score.isolation_score,
+                            rolling_score=score.rolling_score,
+                            seasonal_score=score.seasonal_score,
+                            combined_score=score.combined_score,
+                            dynamic_threshold=score.dynamic_threshold,
+                            confidence_score=score.confidence_score,
+                            severity=score.severity,
+                            reason_codes=score.reason_codes,
+                            is_anomalous=score.is_anomalous,
+                            selected_detector=score.selected_detector,
+                            scoring_latency_ms=score.scoring_latency_ms,
+                            created_at=score.created_at,
+                        )
+                        if score
+                        else None
+                    ),
+                    alert_id=alert.id if alert else None,
+                )
+            )
+
+        return scored_events
 
     def buffer_enqueue(self, payload: BufferEnqueueRequest) -> BufferEnqueueResponse:
         queued = buffer_instance.enqueue_many(payload.events)

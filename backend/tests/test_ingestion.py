@@ -91,5 +91,45 @@ def test_replay_seeded_stream(client):
     )
     assert response.status_code == 201
     body = response.json()
+    assert body["replay_run_id"]
+    assert body["duration_ms"] >= 0
+    assert "started_at" in body
+    assert "finished_at" in body
     assert body["ingested"] == 30
     assert body["anomalous"] >= 1
+
+
+def test_scored_events_endpoint_returns_score_rationale(client):
+    baseline = [9.8, 10.0, 10.1, 9.9, 10.2, 10.0, 10.1, 9.7, 10.2, 9.9, 10.0, 10.1]
+    for value in baseline:
+        client.post(
+            "/api/v1/events/ingest",
+            json={
+                "source": "sensor",
+                "event_type": "latency",
+                "signal_type": "latency",
+                "entity_id": "sensor-phase2",
+                "payload": {"value": value},
+            },
+        )
+
+    client.post(
+        "/api/v1/events/ingest",
+        json={
+            "source": "sensor",
+            "event_type": "latency",
+            "signal_type": "latency",
+            "entity_id": "sensor-phase2",
+            "payload": {"value": 320.0},
+        },
+    )
+
+    response = client.get("/api/v1/events/scored", params={"anomalous_only": True})
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows
+    first = rows[0]
+    assert "event" in first
+    assert "score" in first
+    assert first["score"]["is_anomalous"] is True
+    assert first["score"]["reason_codes"]

@@ -26,9 +26,28 @@ function App() {
   const [page, setPage] = useState('Dashboard')
   const [state, setState] = useState({
     events: [],
+    scoredEvents: [],
     alerts: [],
     metrics: null,
+    bufferStats: null,
     error: '',
+  })
+  const [replayState, setReplayState] = useState({
+    loading: false,
+    result: null,
+    error: '',
+  })
+  const [replayForm, setReplayForm] = useState({
+    seed: 42,
+    count: 60,
+    interval_seconds: 15,
+    inject_spike_every: 10,
+    allow_out_of_order: true,
+    source: 'demo-stream',
+    workspace_id: 'default',
+    event_type: 'latency',
+    signal_type: 'latency',
+    entity_id: 'entity-demo-1',
   })
   const [sourceFilter, setSourceFilter] = useState('all')
 
@@ -37,13 +56,28 @@ function App() {
 
     const refresh = async () => {
       try {
+        const [events, scoredEvents, alerts, metrics, bufferStats] =
+          await Promise.all([
+            fetchJson('/api/v1/events?limit=100'),
+            fetchJson('/api/v1/events/scored?limit=100'),
+            fetchJson('/api/v1/alerts'),
+            fetchJson('/api/v1/metrics/summary'),
+            fetchJson('/api/v1/events/buffer/stats'),
+          ])
         const [events, alerts, metrics] = await Promise.all([
           fetchJson('/api/v1/events?limit=100'),
           fetchJson('/api/v1/alerts'),
           fetchJson('/api/v1/metrics/summary'),
         ])
         if (alive) {
-          setState({ events, alerts, metrics, error: '' })
+          setState({
+            events,
+            scoredEvents,
+            alerts,
+            metrics,
+            bufferStats,
+            error: '',
+          })
         }
       } catch (error) {
         if (alive) {
@@ -93,6 +127,40 @@ function App() {
     }))
   }, [state.alerts])
 
+  const topAnomalies = useMemo(() => {
+    return state.scoredEvents
+      .filter((item) => item.score?.is_anomalous)
+      .slice(0, 8)
+  }, [state.scoredEvents])
+
+  const onReplayChange = (key, value) => {
+    setReplayForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const runReplay = async () => {
+    setReplayState({ loading: true, result: null, error: '' })
+    try {
+      const response = await fetch(`${apiBase}/api/v1/events/replay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...replayForm,
+          seed: Number(replayForm.seed),
+          count: Number(replayForm.count),
+          interval_seconds: Number(replayForm.interval_seconds),
+          inject_spike_every: Number(replayForm.inject_spike_every),
+        }),
+      })
+      if (!response.ok) {
+        throw new Error(`Replay failed (${response.status})`)
+      }
+      const result = await response.json()
+      setReplayState({ loading: false, result, error: '' })
+    } catch (error) {
+      setReplayState({ loading: false, result: null, error: error.message })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -139,6 +207,114 @@ function App() {
           </p>
         </div>
 
+        {(page === 'Dashboard' || page === 'Events') && (
+          <section className="rounded-lg bg-slate-900 p-4">
+            <h2 className="mb-3 text-lg font-semibold">Replay control</h2>
+            <div className="grid gap-3 md:grid-cols-4">
+              <label className="text-sm text-slate-300">
+                Count
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  className="mt-1 w-full rounded-md bg-slate-800 px-2 py-1"
+                  value={replayForm.count}
+                  onChange={(event) =>
+                    onReplayChange('count', event.target.value)
+                  }
+                />
+              </label>
+              <label className="text-sm text-slate-300">
+                Interval seconds
+                <input
+                  type="number"
+                  min={1}
+                  max={3600}
+                  className="mt-1 w-full rounded-md bg-slate-800 px-2 py-1"
+                  value={replayForm.interval_seconds}
+                  onChange={(event) =>
+                    onReplayChange('interval_seconds', event.target.value)
+                  }
+                />
+              </label>
+              <label className="text-sm text-slate-300">
+                Spike every N
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  className="mt-1 w-full rounded-md bg-slate-800 px-2 py-1"
+                  value={replayForm.inject_spike_every}
+                  onChange={(event) =>
+                    onReplayChange('inject_spike_every', event.target.value)
+                  }
+                />
+              </label>
+              <label className="text-sm text-slate-300">
+                Seed
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded-md bg-slate-800 px-2 py-1"
+                  value={replayForm.seed}
+                  onChange={(event) =>
+                    onReplayChange('seed', event.target.value)
+                  }
+                />
+              </label>
+            </div>
+            <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={replayForm.allow_out_of_order}
+                onChange={(event) =>
+                  onReplayChange('allow_out_of_order', event.target.checked)
+                }
+              />
+              Allow out-of-order events
+            </label>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                className="rounded-md bg-cyan-500 px-3 py-1 text-sm font-medium text-slate-950 disabled:opacity-60"
+                disabled={replayState.loading}
+                onClick={runReplay}
+              >
+                {replayState.loading ? 'Running replay...' : 'Run replay'}
+              </button>
+              {replayState.error ? (
+                <p className="text-sm text-rose-400">{replayState.error}</p>
+              ) : null}
+            </div>
+            {replayState.result ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Run ID</p>
+                  <p className="truncate text-sm font-semibold">
+                    {replayState.result.replay_run_id}
+                  </p>
+                </article>
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Ingested</p>
+                  <p className="text-xl font-semibold">
+                    {replayState.result.ingested}
+                  </p>
+                </article>
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Anomalies</p>
+                  <p className="text-xl font-semibold">
+                    {replayState.result.anomalous}
+                  </p>
+                </article>
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Duration (ms)</p>
+                  <p className="text-xl font-semibold">
+                    {replayState.result.duration_ms}
+                  </p>
+                </article>
+              </div>
+            ) : null}
+          </section>
+        )}
+
         {(page === 'Dashboard' || page === 'Metrics') && state.metrics ? (
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
@@ -158,6 +334,29 @@ function App() {
                 <p className="text-2xl font-semibold">{value}</p>
               </article>
             ))}
+          </section>
+        ) : null}
+
+        {(page === 'Dashboard' || page === 'Metrics') && state.bufferStats ? (
+          <section className="grid gap-4 sm:grid-cols-3">
+            <article className="rounded-lg bg-slate-900 p-4">
+              <p className="text-sm text-slate-400">Buffer queued</p>
+              <p className="text-2xl font-semibold">
+                {state.bufferStats.queued}
+              </p>
+            </article>
+            <article className="rounded-lg bg-slate-900 p-4">
+              <p className="text-sm text-slate-400">Total enqueued</p>
+              <p className="text-2xl font-semibold">
+                {state.bufferStats.total_enqueued}
+              </p>
+            </article>
+            <article className="rounded-lg bg-slate-900 p-4">
+              <p className="text-sm text-slate-400">Total flushed</p>
+              <p className="text-2xl font-semibold">
+                {state.bufferStats.total_flushed}
+              </p>
+            </article>
           </section>
         ) : null}
 
@@ -243,6 +442,62 @@ function App() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {(page === 'Dashboard' || page === 'Alerts') && (
+          <section className="rounded-lg bg-slate-900 p-4">
+            <h2 className="mb-3 text-lg font-semibold">
+              Anomaly scoring rationale
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="text-slate-400">
+                    <th className="px-2 py-1">Event ID</th>
+                    <th className="px-2 py-1">Entity</th>
+                    <th className="px-2 py-1">Combined</th>
+                    <th className="px-2 py-1">Threshold</th>
+                    <th className="px-2 py-1">Detector</th>
+                    <th className="px-2 py-1">Reasons</th>
+                    <th className="px-2 py-1">Alert</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topAnomalies.length === 0 ? (
+                    <tr>
+                      <td className="px-2 py-2 text-slate-400" colSpan={7}>
+                        No anomalous scored events yet. Run a replay to generate
+                        data.
+                      </td>
+                    </tr>
+                  ) : (
+                    topAnomalies.map((item) => (
+                      <tr
+                        key={item.event.id}
+                        className="border-t border-slate-800 align-top"
+                      >
+                        <td className="px-2 py-1">{item.event.id}</td>
+                        <td className="px-2 py-1">{item.event.entity_id}</td>
+                        <td className="px-2 py-1">
+                          {item.score?.combined_score}
+                        </td>
+                        <td className="px-2 py-1">
+                          {item.score?.dynamic_threshold}
+                        </td>
+                        <td className="px-2 py-1">
+                          {item.score?.selected_detector}
+                        </td>
+                        <td className="px-2 py-1">
+                          {(item.score?.reason_codes ?? []).join(', ')}
+                        </td>
+                        <td className="px-2 py-1">{item.alert_id ?? '-'}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

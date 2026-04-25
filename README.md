@@ -15,6 +15,7 @@ Pulse AI is a production-style MVP monorepo for real-time anomaly detection. It 
 - `GET /ready`
 - `POST /api/v1/events/ingest`
 - `GET /api/v1/events`
+- `GET /api/v1/events/scored`
 - `POST /api/v1/events/replay`
 - `POST /api/v1/scoring/anomaly`
 - `GET /api/v1/alerts`
