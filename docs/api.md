@@ -3,6 +3,7 @@
 ## Events
 - `POST /api/v1/events/ingest` - ingest a new event, score it, and conditionally create an alert.
 - `GET /api/v1/events` - list recent events.
+- `GET /api/v1/events/scored` - list recent events joined with latest scoring rationale and alert linkage.
 - `POST /api/v1/events/replay` - replay seeded synthetic streams with configurable spikes/out-of-order behavior.
 
 ## Anomaly Scoring

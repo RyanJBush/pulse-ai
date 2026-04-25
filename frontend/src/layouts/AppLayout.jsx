@@ -1,11 +1,11 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom'
 
 const links = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/events', label: 'Events' },
   { to: '/alerts', label: 'Alerts' },
-  { to: '/metrics', label: 'Metrics' }
-];
+  { to: '/metrics', label: 'Metrics' },
+]
 
 export default function AppLayout({ children }) {
   return (
@@ -25,5 +25,5 @@ export default function AppLayout({ children }) {
       </aside>
       <main className="content">{children}</main>
     </div>
-  );
+  )
 }

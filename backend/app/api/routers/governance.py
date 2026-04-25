@@ -29,7 +29,9 @@ def list_detectors(db: Session = Depends(get_db)) -> list[DetectorConfigRead]:
     response_model=DetectorConfigRead,
     dependencies=[Depends(require_role("admin", "operator"))],
 )
-def upsert_detector(payload: DetectorConfigUpdate, db: Session = Depends(get_db)) -> DetectorConfigRead:
+def upsert_detector(
+    payload: DetectorConfigUpdate, db: Session = Depends(get_db)
+) -> DetectorConfigRead:
     try:
         return GovernanceService(db).upsert_detector_config(payload)
     except ValueError as exc:

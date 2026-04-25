@@ -10,9 +10,9 @@ from app.models.event import Event
 from app.schemas.evaluation import (
     DetectorComparisonPoint,
     DetectorComparisonResponse,
-    EvaluationSliceRequest,
     EvaluationRequest,
     EvaluationResponse,
+    EvaluationSliceRequest,
     ThresholdPoint,
     ThresholdTuningRequest,
     ThresholdTuningResponse,
@@ -73,9 +73,7 @@ class EvaluationService:
         recall = 0.0 if (tp + fn) == 0 else round(tp / (tp + fn), 4)
         fpr = 0.0 if (fp + tn) == 0 else round(fp / (fp + tn), 4)
         mean_latency = (
-            0.0
-            if not alert_latencies
-            else round(sum(alert_latencies) / len(alert_latencies), 4)
+            0.0 if not alert_latencies else round(sum(alert_latencies) / len(alert_latencies), 4)
         )
 
         return EvaluationResponse(
@@ -94,7 +92,9 @@ class EvaluationService:
         )
 
     def tune_thresholds(self, payload: ThresholdTuningRequest) -> ThresholdTuningResponse:
-        rows = self._load_slice(payload.workspace_id, payload.source, payload.signal_type, payload.entity_id)
+        rows = self._load_slice(
+            payload.workspace_id, payload.source, payload.signal_type, payload.entity_id
+        )
         points: list[ThresholdPoint] = []
         best_threshold: float | None = None
         best_f1 = -1.0
@@ -139,7 +139,9 @@ class EvaluationService:
         )
 
     def detector_comparison(self, payload: EvaluationSliceRequest) -> DetectorComparisonResponse:
-        rows = self._load_slice(payload.workspace_id, payload.source, payload.signal_type, payload.entity_id)
+        rows = self._load_slice(
+            payload.workspace_id, payload.source, payload.signal_type, payload.entity_id
+        )
         stats: dict[str, dict[str, int]] = {}
         for event, score in rows:
             detector = score.selected_detector or "unknown"

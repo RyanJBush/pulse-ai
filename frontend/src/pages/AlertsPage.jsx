@@ -1,19 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
-import DataTable from '../components/DataTable';
-import FilterBar from '../components/FilterBar';
-import { fetchAlerts } from '../services/api';
+import { useEffect, useMemo, useState } from 'react'
+import DataTable from '../components/DataTable'
+import FilterBar from '../components/FilterBar'
+import { fetchAlerts } from '../services/api'
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState([]);
-  const [severityFilter, setSeverityFilter] = useState('all');
+  const [alerts, setAlerts] = useState([])
+  const [severityFilter, setSeverityFilter] = useState('all')
 
   useEffect(() => {
-    fetchAlerts().then(setAlerts).catch(() => setAlerts([]));
-  }, []);
+    fetchAlerts()
+      .then(setAlerts)
+      .catch(() => setAlerts([]))
+  }, [])
 
   const filtered = useMemo(() => {
-    return alerts.filter((alert) => severityFilter === 'all' || alert.severity === severityFilter);
-  }, [alerts, severityFilter]);
+    return alerts.filter(
+      (alert) => severityFilter === 'all' || alert.severity === severityFilter
+    )
+  }, [alerts, severityFilter])
 
   return (
     <section className="page">
@@ -25,7 +29,10 @@ export default function AlertsPage() {
       <FilterBar>
         <label>
           Severity
-          <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+          <select
+            value={severityFilter}
+            onChange={(event) => setSeverityFilter(event.target.value)}
+          >
             <option value="all">all</option>
             <option value="critical">critical</option>
             <option value="high">high</option>
@@ -42,14 +49,16 @@ export default function AlertsPage() {
           {
             key: 'severity',
             label: 'Severity',
-            render: (value) => <span className={`badge badge-${value}`}>{value}</span>
+            render: (value) => (
+              <span className={`badge badge-${value}`}>{value}</span>
+            ),
           },
           { key: 'status', label: 'Status' },
           { key: 'message', label: 'Message' },
-          { key: 'created_at', label: 'Created' }
+          { key: 'created_at', label: 'Created' },
         ]}
         rows={filtered}
       />
     </section>
-  );
+  )
 }
