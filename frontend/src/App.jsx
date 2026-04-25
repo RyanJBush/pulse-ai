@@ -64,6 +64,11 @@ function App() {
             fetchJson('/api/v1/metrics/summary'),
             fetchJson('/api/v1/events/buffer/stats'),
           ])
+        const [events, alerts, metrics] = await Promise.all([
+          fetchJson('/api/v1/events?limit=100'),
+          fetchJson('/api/v1/alerts'),
+          fetchJson('/api/v1/metrics/summary'),
+        ])
         if (alive) {
           setState({
             events,
