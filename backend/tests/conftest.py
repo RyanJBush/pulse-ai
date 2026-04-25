@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.main as main_module
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -19,6 +20,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def reset_db():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    main_module._rate_limiter.clear()
+    main_module.settings.RATE_LIMIT_PER_MINUTE = 10_000
     yield
 
 

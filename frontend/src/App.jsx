@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -14,8 +14,8 @@ import {
 const pages = ['Dashboard', 'Events', 'Alerts', 'Metrics']
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
-const fetchJson = async (path) => {
-  const response = await fetch(`${apiBase}${path}`)
+const fetchJson = async (path, init = {}) => {
+  const response = await fetch(`${apiBase}${path}`, init)
   if (!response.ok) {
     throw new Error(`Request failed: ${path}`)
   }
@@ -50,11 +50,58 @@ function App() {
     entity_id: 'entity-demo-1',
   })
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [selectedEntity, setSelectedEntity] = useState('')
+  const [entityDrilldown, setEntityDrilldown] = useState({
+    loading: false,
+    data: null,
+    error: '',
+  })
+  const [incidents, setIncidents] = useState([])
+  const [selectedAlertId, setSelectedAlertId] = useState(null)
+  const [selectedAlertStatus, setSelectedAlertStatus] = useState('acknowledged')
+  const [alertNoteInput, setAlertNoteInput] = useState('')
+  const [alertNotes, setAlertNotes] = useState([])
+  const [alertWorkflowError, setAlertWorkflowError] = useState('')
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null)
+  const [selectedIncidentStatus, setSelectedIncidentStatus] =
+    useState('investigating')
+  const [incidentNoteInput, setIncidentNoteInput] = useState('')
+  const [incidentNotes, setIncidentNotes] = useState([])
+  const [incidentWorkflowError, setIncidentWorkflowError] = useState('')
+
+  const refreshData = useCallback(async () => {
+    try {
+      const [events, scoredEvents, alerts, metrics, bufferStats, incidentRows] =
+        await Promise.all([
+          fetchJson('/api/v1/events?limit=100'),
+          fetchJson('/api/v1/events/scored?limit=100'),
+          fetchJson('/api/v1/alerts'),
+          fetchJson('/api/v1/metrics/summary'),
+          fetchJson('/api/v1/events/buffer/stats'),
+          fetchJson('/api/v1/incidents', {
+            headers: { 'x-role': 'analyst' },
+          }),
+        ])
+      setState({
+        events,
+        scoredEvents,
+        alerts,
+        metrics,
+        bufferStats,
+        error: '',
+      })
+      setIncidents(incidentRows)
+    } catch (error) {
+      setState((prev) => ({ ...prev, error: error.message }))
+    }
+  }, [])
 
   useEffect(() => {
     let alive = true
 
     const refresh = async () => {
+      if (!alive) return
+      await refreshData()
       try {
         const [events, scoredEvents, alerts, metrics, bufferStats] =
           await Promise.all([
@@ -92,7 +139,7 @@ function App() {
       alive = false
       clearInterval(id)
     }
-  }, [])
+  }, [refreshData])
 
   const sourceOptions = useMemo(() => {
     const unique = new Set(state.events.map((event) => event.source))
@@ -133,6 +180,20 @@ function App() {
       .slice(0, 8)
   }, [state.scoredEvents])
 
+  const entityOptions = useMemo(() => {
+    return [...new Set(state.events.map((event) => event.entity_id))]
+  }, [state.events])
+
+  const selectedAlert = useMemo(() => {
+    return state.alerts.find((alert) => alert.id === selectedAlertId) ?? null
+  }, [selectedAlertId, state.alerts])
+
+  const selectedIncident = useMemo(() => {
+    return (
+      incidents.find((incident) => incident.id === selectedIncidentId) ?? null
+    )
+  }, [incidents, selectedIncidentId])
+
   const onReplayChange = (key, value) => {
     setReplayForm((prev) => ({ ...prev, [key]: value }))
   }
@@ -156,8 +217,191 @@ function App() {
       }
       const result = await response.json()
       setReplayState({ loading: false, result, error: '' })
+      await refreshData()
     } catch (error) {
       setReplayState({ loading: false, result: null, error: error.message })
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedEntity) {
+      setEntityDrilldown({ loading: false, data: null, error: '' })
+      return
+    }
+    let alive = true
+    const run = async () => {
+      setEntityDrilldown({ loading: true, data: null, error: '' })
+      try {
+        const data = await fetchJson(
+          `/api/v1/metrics/entities/${selectedEntity}`
+        )
+        if (alive) {
+          setEntityDrilldown({ loading: false, data, error: '' })
+        }
+      } catch (error) {
+        if (alive) {
+          setEntityDrilldown({
+            loading: false,
+            data: null,
+            error: error.message,
+          })
+        }
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [selectedEntity])
+
+  useEffect(() => {
+    if (!selectedAlertId) {
+      setAlertNotes([])
+      return
+    }
+    let alive = true
+    const loadNotes = async () => {
+      try {
+        const notes = await fetchJson(`/api/v1/alerts/${selectedAlertId}/notes`)
+        if (alive) {
+          setAlertNotes(notes)
+        }
+      } catch {
+        if (alive) {
+          setAlertNotes([])
+        }
+      }
+    }
+    loadNotes()
+    return () => {
+      alive = false
+    }
+  }, [selectedAlertId])
+
+  useEffect(() => {
+    if (!selectedIncidentId) {
+      setIncidentNotes([])
+      return
+    }
+    let alive = true
+    const loadNotes = async () => {
+      try {
+        const notes = await fetchJson(
+          `/api/v1/incidents/${selectedIncidentId}/notes`,
+          {
+            headers: { 'x-role': 'analyst' },
+          }
+        )
+        if (alive) {
+          setIncidentNotes(notes)
+        }
+      } catch {
+        if (alive) {
+          setIncidentNotes([])
+        }
+      }
+    }
+    loadNotes()
+    return () => {
+      alive = false
+    }
+  }, [selectedIncidentId])
+
+  const updateSelectedAlertStatus = async () => {
+    if (!selectedAlertId) return
+    setAlertWorkflowError('')
+    try {
+      await fetchJson(`/api/v1/alerts/${selectedAlertId}/status`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          status: selectedAlertStatus,
+          author: 'operator-ui',
+          note: alertNoteInput || null,
+        }),
+      })
+      if (alertNoteInput.trim()) {
+        setAlertNoteInput('')
+      }
+      await refreshData()
+      const notes = await fetchJson(`/api/v1/alerts/${selectedAlertId}/notes`)
+      setAlertNotes(notes)
+    } catch (error) {
+      setAlertWorkflowError(error.message)
+    }
+  }
+
+  const addAlertNote = async () => {
+    if (!selectedAlertId || !alertNoteInput.trim()) return
+    setAlertWorkflowError('')
+    try {
+      await fetchJson(`/api/v1/alerts/${selectedAlertId}/notes`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          author: 'analyst-ui',
+          note: alertNoteInput.trim(),
+        }),
+      })
+      setAlertNoteInput('')
+      const notes = await fetchJson(`/api/v1/alerts/${selectedAlertId}/notes`)
+      setAlertNotes(notes)
+    } catch (error) {
+      setAlertWorkflowError(error.message)
+    }
+  }
+
+  const updateSelectedIncident = async () => {
+    if (!selectedIncidentId) return
+    setIncidentWorkflowError('')
+    try {
+      await fetchJson(`/api/v1/incidents/${selectedIncidentId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', 'x-role': 'operator' },
+        body: JSON.stringify({
+          status: selectedIncidentStatus,
+          actor: 'operator-ui',
+          note: incidentNoteInput || null,
+        }),
+      })
+      if (incidentNoteInput.trim()) {
+        setIncidentNoteInput('')
+      }
+      await refreshData()
+      const notes = await fetchJson(
+        `/api/v1/incidents/${selectedIncidentId}/notes`,
+        {
+          headers: { 'x-role': 'analyst' },
+        }
+      )
+      setIncidentNotes(notes)
+    } catch (error) {
+      setIncidentWorkflowError(error.message)
+    }
+  }
+
+  const addIncidentNote = async () => {
+    if (!selectedIncidentId || !incidentNoteInput.trim()) return
+    setIncidentWorkflowError('')
+    try {
+      await fetchJson(`/api/v1/incidents/${selectedIncidentId}/notes`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-role': 'analyst' },
+        body: JSON.stringify({
+          author: 'analyst-ui',
+          note: incidentNoteInput.trim(),
+        }),
+      })
+      setIncidentNoteInput('')
+      const notes = await fetchJson(
+        `/api/v1/incidents/${selectedIncidentId}/notes`,
+        {
+          headers: { 'x-role': 'analyst' },
+        }
+      )
+      setIncidentNotes(notes)
+    } catch (error) {
+      setIncidentWorkflowError(error.message)
     }
   }
 
@@ -360,6 +604,62 @@ function App() {
           </section>
         ) : null}
 
+        {(page === 'Dashboard' || page === 'Metrics') && (
+          <section className="rounded-lg bg-slate-900 p-4">
+            <h2 className="mb-3 text-lg font-semibold">Entity drill-down</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                className="rounded-md bg-slate-800 px-2 py-1 text-sm"
+                value={selectedEntity}
+                onChange={(event) => setSelectedEntity(event.target.value)}
+              >
+                <option value="">Select entity…</option>
+                {entityOptions.map((entityId) => (
+                  <option key={entityId} value={entityId}>
+                    {entityId}
+                  </option>
+                ))}
+              </select>
+              {entityDrilldown.loading ? (
+                <p className="text-sm text-slate-400">
+                  Loading entity metrics…
+                </p>
+              ) : null}
+              {entityDrilldown.error ? (
+                <p className="text-sm text-rose-400">{entityDrilldown.error}</p>
+              ) : null}
+            </div>
+            {entityDrilldown.data ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Total events</p>
+                  <p className="text-xl font-semibold">
+                    {entityDrilldown.data.total_events}
+                  </p>
+                </article>
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Anomalous events</p>
+                  <p className="text-xl font-semibold">
+                    {entityDrilldown.data.anomalous_events}
+                  </p>
+                </article>
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Active alerts</p>
+                  <p className="text-xl font-semibold">
+                    {entityDrilldown.data.active_alerts}
+                  </p>
+                </article>
+                <article className="rounded-md bg-slate-800 p-3">
+                  <p className="text-xs text-slate-400">Avg score</p>
+                  <p className="text-xl font-semibold">
+                    {entityDrilldown.data.avg_combined_score}
+                  </p>
+                </article>
+              </div>
+            ) : null}
+          </section>
+        )}
+
         {(page === 'Dashboard' || page === 'Events') && (
           <section className="rounded-lg bg-slate-900 p-4">
             <h2 className="mb-3 text-lg font-semibold">Events by type</h2>
@@ -501,6 +801,177 @@ function App() {
                 </tbody>
               </table>
             </div>
+          </section>
+        )}
+
+        {page === 'Alerts' && (
+          <section className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-lg bg-slate-900 p-4">
+              <h2 className="mb-3 text-lg font-semibold">Alert workflow</h2>
+              <div className="space-y-3">
+                <select
+                  className="w-full rounded-md bg-slate-800 px-2 py-1 text-sm"
+                  value={selectedAlertId ?? ''}
+                  onChange={(event) =>
+                    setSelectedAlertId(
+                      event.target.value ? Number(event.target.value) : null
+                    )
+                  }
+                >
+                  <option value="">Select alert…</option>
+                  {state.alerts.map((alert) => (
+                    <option key={alert.id} value={alert.id}>
+                      #{alert.id} {alert.severity} {alert.status}
+                    </option>
+                  ))}
+                </select>
+                {selectedAlert ? (
+                  <div className="rounded-md bg-slate-800 p-3 text-sm">
+                    <p>
+                      <span className="text-slate-400">Message:</span>{' '}
+                      {selectedAlert.message}
+                    </p>
+                    <p>
+                      <span className="text-slate-400">Current status:</span>{' '}
+                      {selectedAlert.status}
+                    </p>
+                  </div>
+                ) : null}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <select
+                    className="rounded-md bg-slate-800 px-2 py-1 text-sm"
+                    value={selectedAlertStatus}
+                    onChange={(event) =>
+                      setSelectedAlertStatus(event.target.value)
+                    }
+                  >
+                    <option value="acknowledged">acknowledged</option>
+                    <option value="investigating">investigating</option>
+                    <option value="resolved">resolved</option>
+                    <option value="suppressed">suppressed</option>
+                  </select>
+                  <button
+                    className="rounded-md bg-cyan-500 px-3 py-1 text-sm font-medium text-slate-950"
+                    onClick={updateSelectedAlertStatus}
+                  >
+                    Update status
+                  </button>
+                </div>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-md bg-slate-800 px-2 py-1 text-sm"
+                  placeholder="Add workflow note..."
+                  value={alertNoteInput}
+                  onChange={(event) => setAlertNoteInput(event.target.value)}
+                />
+                <button
+                  className="rounded-md bg-slate-700 px-3 py-1 text-sm"
+                  onClick={addAlertNote}
+                >
+                  Add note
+                </button>
+                {alertWorkflowError ? (
+                  <p className="text-sm text-rose-400">{alertWorkflowError}</p>
+                ) : null}
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md bg-slate-950/40 p-2">
+                  {alertNotes.length === 0 ? (
+                    <p className="text-sm text-slate-500">No notes yet.</p>
+                  ) : (
+                    alertNotes.map((note) => (
+                      <p key={note.id} className="text-sm">
+                        <span className="text-slate-400">{note.author}:</span>{' '}
+                        {note.note}
+                      </p>
+                    ))
+                  )}
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-lg bg-slate-900 p-4">
+              <h2 className="mb-3 text-lg font-semibold">Incident workflow</h2>
+              <div className="space-y-3">
+                <select
+                  className="w-full rounded-md bg-slate-800 px-2 py-1 text-sm"
+                  value={selectedIncidentId ?? ''}
+                  onChange={(event) =>
+                    setSelectedIncidentId(
+                      event.target.value ? Number(event.target.value) : null
+                    )
+                  }
+                >
+                  <option value="">Select incident…</option>
+                  {incidents.map((incident) => (
+                    <option key={incident.id} value={incident.id}>
+                      #{incident.id} {incident.group_key} ({incident.status})
+                    </option>
+                  ))}
+                </select>
+                {selectedIncident ? (
+                  <div className="rounded-md bg-slate-800 p-3 text-sm">
+                    <p>
+                      <span className="text-slate-400">Title:</span>{' '}
+                      {selectedIncident.title}
+                    </p>
+                    <p>
+                      <span className="text-slate-400">Current status:</span>{' '}
+                      {selectedIncident.status}
+                    </p>
+                  </div>
+                ) : null}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <select
+                    className="rounded-md bg-slate-800 px-2 py-1 text-sm"
+                    value={selectedIncidentStatus}
+                    onChange={(event) =>
+                      setSelectedIncidentStatus(event.target.value)
+                    }
+                  >
+                    <option value="investigating">investigating</option>
+                    <option value="resolved">resolved</option>
+                    <option value="suppressed">suppressed</option>
+                  </select>
+                  <button
+                    className="rounded-md bg-cyan-500 px-3 py-1 text-sm font-medium text-slate-950"
+                    onClick={updateSelectedIncident}
+                  >
+                    Update incident
+                  </button>
+                </div>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-md bg-slate-800 px-2 py-1 text-sm"
+                  placeholder="Add incident note..."
+                  value={incidentNoteInput}
+                  onChange={(event) => setIncidentNoteInput(event.target.value)}
+                />
+                <button
+                  className="rounded-md bg-slate-700 px-3 py-1 text-sm"
+                  onClick={addIncidentNote}
+                >
+                  Add incident note
+                </button>
+                {incidentWorkflowError ? (
+                  <p className="text-sm text-rose-400">
+                    {incidentWorkflowError}
+                  </p>
+                ) : null}
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md bg-slate-950/40 p-2">
+                  {incidentNotes.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      No incident notes yet.
+                    </p>
+                  ) : (
+                    incidentNotes.map((note) => (
+                      <p key={note.id} className="text-sm">
+                        <span className="text-slate-400">{note.author}:</span>{' '}
+                        {note.note}
+                      </p>
+                    ))
+                  )}
+                </div>
+              </div>
+            </article>
           </section>
         )}
       </div>
