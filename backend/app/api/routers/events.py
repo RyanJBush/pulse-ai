@@ -42,7 +42,9 @@ def replay_events(payload: ReplayRequest, db: Session = Depends(get_db)) -> Repl
 
 
 @router.post("/buffer/enqueue", response_model=BufferEnqueueResponse, status_code=202)
-def enqueue_buffer(payload: BufferEnqueueRequest, db: Session = Depends(get_db)) -> BufferEnqueueResponse:
+def enqueue_buffer(
+    payload: BufferEnqueueRequest, db: Session = Depends(get_db)
+) -> BufferEnqueueResponse:
     return EventService(db).buffer_enqueue(payload)
 
 

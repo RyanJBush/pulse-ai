@@ -23,8 +23,30 @@ def test_event_ingestion_returns_scoring_fields(client):
 
 def test_anomalous_event_creates_alert(client):
     # Build baseline around low values.
-    for value in [9.5, 9.8, 10.0, 10.2, 10.1, 9.9, 10.0, 10.1, 9.8, 10.2, 9.7, 10.3,
-                  10.0, 10.1, 9.9, 10.2, 10.0, 9.8, 10.1, 9.9, 10.0, 10.2]:
+    for value in [
+        9.5,
+        9.8,
+        10.0,
+        10.2,
+        10.1,
+        9.9,
+        10.0,
+        10.1,
+        9.8,
+        10.2,
+        9.7,
+        10.3,
+        10.0,
+        10.1,
+        9.9,
+        10.2,
+        10.0,
+        9.8,
+        10.1,
+        9.9,
+        10.0,
+        10.2,
+    ]:
         client.post(
             "/api/v1/events/ingest",
             json={

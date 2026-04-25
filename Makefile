@@ -12,7 +12,7 @@ lint:
 	npm --prefix frontend run format:check
 
 test:
-	pytest backend/tests
+	PYTHONPATH=backend pytest backend/tests
 
 build:
 	npm --prefix frontend run build

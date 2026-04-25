@@ -5,8 +5,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -40,9 +38,9 @@ function App() {
     const refresh = async () => {
       try {
         const [events, alerts, metrics] = await Promise.all([
-          fetchJson('/api/events?limit=100'),
-          fetchJson('/api/alerts'),
-          fetchJson('/api/metrics/summary'),
+          fetchJson('/api/v1/events?limit=100'),
+          fetchJson('/api/v1/alerts'),
+          fetchJson('/api/v1/metrics/summary'),
         ])
         if (alive) {
           setState({ events, alerts, metrics, error: '' })
@@ -63,7 +61,7 @@ function App() {
   }, [])
 
   const sourceOptions = useMemo(() => {
-    const unique = new Set(state.events.map((event) => event.source_id))
+    const unique = new Set(state.events.map((event) => event.source))
     return ['all', ...unique]
   }, [state.events])
 
@@ -71,7 +69,7 @@ function App() {
     if (sourceFilter === 'all') {
       return state.events
     }
-    return state.events.filter((event) => event.source_id === sourceFilter)
+    return state.events.filter((event) => event.source === sourceFilter)
   }, [state.events, sourceFilter])
 
   const eventsByType = useMemo(() => {
@@ -81,6 +79,19 @@ function App() {
     }
     return Object.entries(buckets).map(([name, count]) => ({ name, count }))
   }, [filteredEvents])
+
+  const alertsBySeverity = useMemo(() => {
+    const buckets = { critical: 0, high: 0, medium: 0, low: 0 }
+    for (const alert of state.alerts) {
+      if (alert.severity in buckets) {
+        buckets[alert.severity] += 1
+      }
+    }
+    return Object.entries(buckets).map(([severity, count]) => ({
+      severity,
+      count,
+    }))
+  }, [state.alerts])
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
@@ -131,10 +142,16 @@ function App() {
         {(page === 'Dashboard' || page === 'Metrics') && state.metrics ? (
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ['Events', state.metrics.total_events],
-              ['Scores', state.metrics.total_scores],
-              ['Alerts', state.metrics.total_alerts],
-              ['Open alerts', state.metrics.open_alerts],
+              [
+                'Anomaly rate',
+                `${(state.metrics.anomaly_rate * 100).toFixed(1)}%`,
+              ],
+              ['Alerts', state.metrics.alert_count],
+              ['Throughput / min', state.metrics.throughput_per_minute],
+              [
+                'High severity anomalies',
+                state.metrics.high_severity_anomalies,
+              ],
             ].map(([label, value]) => (
               <article key={label} className="rounded-lg bg-slate-900 p-4">
                 <p className="text-sm text-slate-400">{label}</p>
@@ -184,19 +201,16 @@ function App() {
               </div>
             </article>
             <article className="rounded-lg bg-slate-900 p-4">
-              <h2 className="mb-3 text-lg font-semibold">Top sources</h2>
+              <h2 className="mb-3 text-lg font-semibold">Alerts by severity</h2>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={state.metrics?.top_sources ?? []}
-                      dataKey="count"
-                      nameKey="source_id"
-                      outerRadius={90}
-                      fill="#38bdf8"
-                    />
+                  <BarChart data={alertsBySeverity}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="severity" stroke="#cbd5e1" />
+                    <YAxis stroke="#cbd5e1" />
                     <Tooltip />
-                  </PieChart>
+                    <Bar dataKey="count" fill="#38bdf8" />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </article>
@@ -221,7 +235,7 @@ function App() {
                   {filteredEvents.slice(0, 20).map((event) => (
                     <tr key={event.id} className="border-t border-slate-800">
                       <td className="px-2 py-1">{event.id}</td>
-                      <td className="px-2 py-1">{event.source_id}</td>
+                      <td className="px-2 py-1">{event.source}</td>
                       <td className="px-2 py-1">{event.event_type}</td>
                       <td className="px-2 py-1">{event.value ?? '-'}</td>
                       <td className="px-2 py-1">
