@@ -46,9 +46,7 @@ class MetricsService:
         throughput_per_minute = round(float(recent_events) / 5.0, 4)
 
         anomaly_rate = (
-            0.0
-            if total_scores == 0
-            else round(float(anomalous_scores) / float(total_scores), 4)
+            0.0 if total_scores == 0 else round(float(anomalous_scores) / float(total_scores), 4)
         )
         summary = KpiSummary(
             anomaly_rate=anomaly_rate,
@@ -62,8 +60,7 @@ class MetricsService:
 
     def entity_drilldown(self, entity_id: str) -> EntityDrilldownMetrics:
         total_events = (
-            self.db.scalar(select(func.count(Event.id)).where(Event.entity_id == entity_id))
-            or 0
+            self.db.scalar(select(func.count(Event.id)).where(Event.entity_id == entity_id)) or 0
         )
         anomalous_events = (
             self.db.scalar(
@@ -114,9 +111,7 @@ class MetricsService:
                 reason_code_distribution[code] = reason_code_distribution.get(code, 0) + 1
 
         anomaly_rate = (
-            0.0
-            if total_events == 0
-            else round(float(anomalous_events) / float(total_events), 4)
+            0.0 if total_events == 0 else round(float(anomalous_events) / float(total_events), 4)
         )
         return EntityDrilldownMetrics(
             entity_id=entity_id,

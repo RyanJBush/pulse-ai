@@ -3,6 +3,7 @@
 ## Events
 - `POST /api/v1/events/ingest` - ingest a new event, score it, and conditionally create an alert.
 - `GET /api/v1/events` - list recent events.
+- `GET /api/v1/events/scored` - list recent events joined with latest scoring rationale and alert linkage.
 - `POST /api/v1/events/replay` - replay seeded synthetic streams with configurable spikes/out-of-order behavior.
 
 ## Anomaly Scoring
@@ -17,6 +18,11 @@
 ## Metrics
 - `GET /api/v1/metrics/summary` - KPI summary (anomaly rate, throughput, alert count, severity/latency stats).
 - `GET /api/v1/metrics/entities/{entity_id}` - entity drill-down metrics.
+
+## Evaluation
+- `POST /api/v1/evaluation/seeded-benchmark` - run seeded replay benchmark with precision/recall/FPR outputs.
+- `POST /api/v1/evaluation/threshold-tuning` - compute precision/recall/FPR across thresholds and return a recommended threshold.
+- `POST /api/v1/evaluation/detector-comparison` - compare detector true/false positive rates for a selected slice.
 
 ## Health
 - `GET /health` - basic liveness check.

@@ -16,7 +16,9 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     source: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False, default="default", index=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="default", index=True
+    )
     event_type: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     signal_type: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     entity_id: Mapped[str] = mapped_column(

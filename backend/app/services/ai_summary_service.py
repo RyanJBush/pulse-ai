@@ -33,8 +33,10 @@ class AISummaryService:
 
         primary_reason = score.reason_codes[0] if score.reason_codes else "NO_STRONG_SIGNAL"
         summary = (
-            f"{score.severity.upper()} anomaly on {event.signal_type} for entity {event.entity_id}. "
-            f"Combined score {score.combined_score:.3f} exceeded threshold {score.dynamic_threshold:.3f}."
+            f"{score.severity.upper()} anomaly on {event.signal_type} "
+            f"for entity {event.entity_id}. "
+            f"Combined score {score.combined_score:.3f} exceeded threshold "
+            f"{score.dynamic_threshold:.3f}."
         )
         explanation = (
             f"Signal source={event.source}, value={event.value:.3f}. "
@@ -66,24 +68,40 @@ class AISummaryService:
         start = datetime.combine(use_day, time.min)
         end = start + timedelta(days=1)
 
-        total_events = self.db.scalar(
-            select(func.count(Event.id)).where(Event.created_at >= start).where(Event.created_at < end)
-        ) or 0
-        anomalies = self.db.scalar(
-            select(func.count(AnomalyScore.id))
-            .where(AnomalyScore.created_at >= start)
-            .where(AnomalyScore.created_at < end)
-            .where(AnomalyScore.is_anomalous.is_(True))
-        ) or 0
-        alerts = self.db.scalar(
-            select(func.count(Alert.id)).where(Alert.created_at >= start).where(Alert.created_at < end)
-        ) or 0
-        high_severity_alerts = self.db.scalar(
-            select(func.count(Alert.id))
-            .where(Alert.created_at >= start)
-            .where(Alert.created_at < end)
-            .where(Alert.severity.in_(("high", "critical")))
-        ) or 0
+        total_events = (
+            self.db.scalar(
+                select(func.count(Event.id))
+                .where(Event.created_at >= start)
+                .where(Event.created_at < end)
+            )
+            or 0
+        )
+        anomalies = (
+            self.db.scalar(
+                select(func.count(AnomalyScore.id))
+                .where(AnomalyScore.created_at >= start)
+                .where(AnomalyScore.created_at < end)
+                .where(AnomalyScore.is_anomalous.is_(True))
+            )
+            or 0
+        )
+        alerts = (
+            self.db.scalar(
+                select(func.count(Alert.id))
+                .where(Alert.created_at >= start)
+                .where(Alert.created_at < end)
+            )
+            or 0
+        )
+        high_severity_alerts = (
+            self.db.scalar(
+                select(func.count(Alert.id))
+                .where(Alert.created_at >= start)
+                .where(Alert.created_at < end)
+                .where(Alert.severity.in_(("high", "critical")))
+            )
+            or 0
+        )
 
         entity_rows = self.db.execute(
             select(Event.entity_id, func.count(Event.id).label("cnt"))
@@ -107,13 +125,17 @@ class AISummaryService:
 
         repeated_patterns = [
             {"pattern": key, "count": count}
-            for key, count in sorted(pattern_counts.items(), key=lambda item: item[1], reverse=True)[:5]
+            for key, count in sorted(
+                pattern_counts.items(), key=lambda item: item[1], reverse=True
+            )[:5]
         ]
 
+        top_noisy_entity = top_entities[0]["entity_id"] if top_entities else "n/a"
         briefing = (
-            f"Daily briefing for {use_day.isoformat()}: {anomalies} anomalies from {total_events} events, "
-            f"{alerts} alerts generated ({high_severity_alerts} high/critical). "
-            f"Top noisy entity: {top_entities[0]['entity_id'] if top_entities else 'n/a'}."
+            f"Daily briefing for {use_day.isoformat()}: {anomalies} anomalies "
+            f"from {total_events} events, {alerts} alerts generated "
+            f"({high_severity_alerts} high/critical). "
+            f"Top noisy entity: {top_noisy_entity}."
         )
 
         response = DailyBriefingRead(
@@ -145,7 +167,8 @@ class AISummaryService:
 
         timeline_points = [
             f"{incident.created_at.isoformat()} incident opened with severity={incident.severity}",
-            f"{len(alerts)} linked alerts, {incident.suppressed_alerts_count} suppressed duplicates",
+            f"{len(alerts)} linked alerts, "
+            f"{incident.suppressed_alerts_count} suppressed duplicates",
         ]
         timeline_points.extend(
             [f"{note.created_at.isoformat()} {note.author}: {note.note}" for note in notes[:5]]

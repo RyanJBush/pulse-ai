@@ -1,5 +1,9 @@
 :root {
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif;
   color: #e5e7eb;
   background: #020617;
 }
@@ -96,7 +100,11 @@ body {
 }
 
 .metric-card {
-  background: linear-gradient(165deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.9));
+  background: linear-gradient(
+    165deg,
+    rgba(15, 23, 42, 0.9),
+    rgba(2, 6, 23, 0.9)
+  );
   border: 1px solid #1f2937;
   border-radius: 10px;
   padding: 1rem;
