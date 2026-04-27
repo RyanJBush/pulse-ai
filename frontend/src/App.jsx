@@ -127,6 +127,35 @@ function App() {
     const refresh = async () => {
       if (!alive) return
       await refreshData()
+      try {
+        const [events, scoredEvents, alerts, metrics, bufferStats] =
+          await Promise.all([
+            fetchJson('/api/v1/events?limit=100'),
+            fetchJson('/api/v1/events/scored?limit=100'),
+            fetchJson('/api/v1/alerts'),
+            fetchJson('/api/v1/metrics/summary'),
+            fetchJson('/api/v1/events/buffer/stats'),
+          ])
+        const [events, alerts, metrics] = await Promise.all([
+          fetchJson('/api/v1/events?limit=100'),
+          fetchJson('/api/v1/alerts'),
+          fetchJson('/api/v1/metrics/summary'),
+        ])
+        if (alive) {
+          setState({
+            events,
+            scoredEvents,
+            alerts,
+            metrics,
+            bufferStats,
+            error: '',
+          })
+        }
+      } catch (error) {
+        if (alive) {
+          setState((prev) => ({ ...prev, error: error.message }))
+        }
+      }
     }
 
     refresh()

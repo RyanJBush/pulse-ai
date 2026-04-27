@@ -48,6 +48,34 @@ Pulse AI is a production-style anomaly detection and monitoring platform with:
   - `POST /api/v1/evaluation/detector-comparison`
 
 ---
+Pulse AI is a production-style MVP monorepo for real-time anomaly detection. It ingests events, scores them with a blended Z-score + Isolation Forest approach, generates alerts, and exposes dashboards for monitoring.
+
+## Monorepo layout
+
+- `backend/` – FastAPI API, SQLAlchemy models, anomaly scoring logic, pytest + ruff setup
+- `frontend/` – React + Vite + Tailwind + Recharts UI
+- `docs/` – lightweight architecture documentation
+- `.github/workflows/ci.yml` – GitHub Actions pipeline for backend/frontend linting, tests, and build
+
+## Backend API
+
+- `GET /health`
+- `GET /ready`
+- `POST /api/v1/events/ingest`
+- `GET /api/v1/events`
+- `GET /api/v1/events/scored`
+- `POST /api/v1/events/replay`
+- `POST /api/v1/scoring/anomaly`
+- `GET /api/v1/alerts`
+- `PATCH /api/v1/alerts/{id}/status`
+- `POST /api/v1/alerts/{id}/notes`
+- `GET /api/v1/metrics/summary`
+- `GET /api/v1/metrics/entities/{entity_id}`
+
+Data model tables:
+- `events`
+- `anomaly_scores`
+- `alerts`
 
 ## Local development
 
