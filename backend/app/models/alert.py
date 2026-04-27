@@ -20,7 +20,9 @@ class Alert(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
-    workspace_id: Mapped[str] = mapped_column(String(64), nullable=False, default="default", index=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="default", index=True
+    )
     incident_id: Mapped[int | None] = mapped_column(
         ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True
     )

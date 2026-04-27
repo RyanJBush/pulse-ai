@@ -59,10 +59,37 @@ class ReplayRequest(BaseModel):
 
 
 class ReplayResponse(BaseModel):
+    replay_run_id: str
+    started_at: datetime
+    finished_at: datetime
+    duration_ms: float
     ingested: int
     anomalous: int
     alerts_created: int
     suppressed_alerts: int
+    sample_alert_ids: list[int] = Field(default_factory=list)
+
+
+class EventScoreRead(BaseModel):
+    z_score: float
+    isolation_score: float
+    rolling_score: float
+    seasonal_score: float
+    combined_score: float
+    dynamic_threshold: float
+    confidence_score: float
+    severity: str
+    reason_codes: list[str]
+    is_anomalous: bool
+    selected_detector: str
+    scoring_latency_ms: float
+    created_at: datetime
+
+
+class ScoredEventRead(BaseModel):
+    event: EventRead
+    score: EventScoreRead | None = None
+    alert_id: int | None = None
 
 
 class BufferEnqueueRequest(BaseModel):

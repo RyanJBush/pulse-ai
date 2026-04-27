@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import time
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -23,7 +22,9 @@ class BackgroundJobRunner:
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="pulse-background-jobs", daemon=True)
+        self._thread = threading.Thread(
+            target=self._loop, name="pulse-background-jobs", daemon=True
+        )
         self._thread.start()
         logger.info("background_jobs_started interval_seconds=%s", self.interval_seconds)
 
@@ -40,9 +41,7 @@ class BackgroundJobRunner:
             self._stop.wait(self.interval_seconds)
 
     def _run_detector_refresh_hook(self) -> None:
-        logger.info(
-            "detector_refresh_hook status=ok at=%s", datetime.now(timezone.utc).isoformat()
-        )
+        logger.info("detector_refresh_hook status=ok at=%s", datetime.now(timezone.utc).isoformat())
 
     def _run_drift_hook(self) -> None:
         db = SessionLocal()

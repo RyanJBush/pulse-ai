@@ -1,4 +1,4 @@
-.PHONY: backend-install frontend-install lint test build format
+.PHONY: backend-install frontend-install lint test build format demo-replay
 
 backend-install:
 	pip install -e ./backend[dev]
@@ -12,7 +12,7 @@ lint:
 	npm --prefix frontend run format:check
 
 test:
-	pytest backend/tests
+	PYTHONPATH=backend pytest backend/tests
 
 build:
 	npm --prefix frontend run build
@@ -20,3 +20,6 @@ build:
 format:
 	ruff format backend/app backend/tests
 	npm --prefix frontend run format
+
+demo-replay:
+	python backend/scripts/run_demo.py --base-url http://localhost:8000

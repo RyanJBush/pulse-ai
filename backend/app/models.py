@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,7 +15,7 @@ class Event(Base):
     value: Mapped[float | None] = mapped_column(Float, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
     scores: Mapped[list["AnomalyScore"]] = relationship(back_populates="event")
@@ -32,7 +32,7 @@ class AnomalyScore(Base):
     model_version: Mapped[str] = mapped_column(String(40), default="mvp-v1")
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
     event: Mapped[Event] = relationship(back_populates="scores")
@@ -49,7 +49,7 @@ class Alert(Base):
     status: Mapped[str] = mapped_column(String(40), default="open", index=True)
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
     anomaly_score: Mapped[AnomalyScore] = relationship(back_populates="alert")
