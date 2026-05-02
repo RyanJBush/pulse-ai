@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routers import ai, alerts, evaluation, events, governance, incidents, metrics, scoring
+from app.api.routers import ai, alerts, evaluation, events, governance, incidents, metrics, scoring, serving
 
 api_router = APIRouter()
 api_router.include_router(events.router, prefix="/events", tags=["events"])
@@ -12,3 +12,5 @@ api_router.include_router(evaluation.router, prefix="/evaluation", tags=["evalua
 api_router.include_router(governance.router, prefix="/governance", tags=["governance"])
 api_router.include_router(incidents.router, prefix="/incidents", tags=["incidents"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
+api_router.include_router(serving.router, prefix="/serving", tags=["serving"])
+api_router.include_router(serving.router, tags=["serving"])
