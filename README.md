@@ -150,3 +150,4 @@ make build
 - Architecture notes: `docs/architecture.md`
 - Deployment guide: `docs/deployment.md`
 - Demo walkthrough: `docs/demo.md`
+- Repository code guide: `docs/repository-guide.md`
