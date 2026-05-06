@@ -15,11 +15,10 @@ from app.schemas.scoring import ScoreRequest, ScoreResponse
 
 
 def score_severity(combined_score: float) -> str:
-    if combined_score >= 0.9:
-        return "critical"
+    """Map score to the UI's three-level severity model."""
     if combined_score >= 0.8:
         return "high"
-    if combined_score >= 0.6:
+    if combined_score >= 0.55:
         return "medium"
     return "low"
 
@@ -170,7 +169,12 @@ class ScoringService:
         )
         combined = round(max(weighted_combined, max(detector_scores.values()) * 0.85), 4)
         dynamic_threshold = round(self._dynamic_threshold(history, signal_type), 4)
-        confidence_score = round(min(1.0, 0.35 + (len(history) / 500) * 0.65), 4)
+        baseline_strength = min(1.0, len(history) / 250)
+        signal_strength = max(z_score, isolation_score, rolling_score, seasonal_score)
+        confidence_score = round(
+            min(1.0, (0.55 * baseline_strength) + (0.45 * signal_strength)),
+            4,
+        )
         is_anomalous = combined >= dynamic_threshold or abs(z_value) >= 3.0 or rolling_score >= 0.9
 
         reason_codes: list[str] = []
@@ -188,10 +192,25 @@ class ScoringService:
             reason_codes.append("NO_STRONG_SIGNAL")
 
         severity = score_severity(combined)
+        if len(history) >= 2:
+            baseline_mean = mean(history)
+            deviation_pct = ((value - baseline_mean) / max(abs(baseline_mean), 1e-6)) * 100
+        else:
+            baseline_mean = value
+            deviation_pct = 0.0
+
+        if z_value >= 0:
+            direction = "spike"
+            direction_reason = "value is above baseline"
+        else:
+            direction = "drop"
+            direction_reason = "value is below baseline"
+
         explanation = (
-            f"value={value:.3f}; detector={profile_name}; combined={combined:.3f}; "
-            f"threshold={dynamic_threshold:.3f}; confidence={confidence_score:.3f}; "
-            f"reasons={','.join(reason_codes)}"
+            f"value={value:.3f}; baseline={baseline_mean:.3f}; deviation={deviation_pct:.2f}%; "
+            f"direction={direction} ({direction_reason}); detector={profile_name}; "
+            f"combined={combined:.3f}; threshold={dynamic_threshold:.3f}; "
+            f"confidence={confidence_score:.3f}; reasons={','.join(reason_codes)}"
         )
         return ScoreResponse(
             z_score=round(z_score, 4),
