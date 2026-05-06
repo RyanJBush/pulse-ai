@@ -1,25 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import MetricCard from '../components/MetricCard'
 import LineChart from '../components/LineChart'
-import { fetchAlerts, fetchEvents } from '../services/api'
+import { fetchAlerts, fetchScoredEvents } from '../services/api'
 
 export default function DashboardPage() {
-  const [events, setEvents] = useState([])
+  const [scoredEvents, setScoredEvents] = useState([])
   const [alerts, setAlerts] = useState([])
 
   useEffect(() => {
-    fetchEvents()
-      .then(setEvents)
-      .catch(() => setEvents([]))
+    fetchScoredEvents()
+      .then(setScoredEvents)
+      .catch(() => setScoredEvents([]))
     fetchAlerts()
       .then(setAlerts)
       .catch(() => setAlerts([]))
   }, [])
 
   const kpis = useMemo(() => {
-    const anomalous = events.filter((item) => item.value > 80).length
-    const anomalyRate = events.length
-      ? ((anomalous / events.length) * 100).toFixed(1)
+    const events = scoredEvents.map((item) => item.event)
+    const anomalous = scoredEvents.filter((item) => item.score?.is_anomalous).length
+    const anomalyRate = scoredEvents.length
+      ? ((anomalous / scoredEvents.length) * 100).toFixed(1)
       : '0.0'
     const avgValue = events.length
       ? (
@@ -29,20 +30,20 @@ export default function DashboardPage() {
       : '0.00'
 
     return {
-      eventsPerMin: events.length,
+      eventsPerMin: scoredEvents.length,
       anomalyRate,
       openAlerts: alerts.filter((alert) => alert.status !== 'resolved').length,
       avgValue,
     }
-  }, [alerts, events])
+  }, [alerts, scoredEvents])
 
-  const anomalySeries = events
+  const anomalySeries = scoredEvents
     .slice(0, 24)
-    .map((event) => Number(event.value || 0))
+    .map((item) => Number(item.event?.value || 0))
   const alertSeries = alerts
     .slice(0, 24)
     .map((alert) =>
-      alert.severity === 'critical' ? 4 : alert.severity === 'high' ? 3 : 1
+      alert.severity === 'high' ? 3 : alert.severity === 'medium' ? 2 : 1
     )
 
   return (

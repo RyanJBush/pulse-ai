@@ -16,3 +16,7 @@ export async function fetchEvents() {
 export async function fetchAlerts() {
   return request('/alerts')
 }
+
+export async function fetchScoredEvents() {
+  return request('/events/scored')
+}
