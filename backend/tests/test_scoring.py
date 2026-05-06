@@ -28,3 +28,33 @@ def test_scoring_endpoint_works(client):
         "explanation",
     }
     assert body["selected_detector"] in {"error_rate", "default"}
+
+
+def test_scoring_explanation_contains_deviation_and_direction(client):
+    low = client.post(
+        "/api/v1/scoring/anomaly",
+        json={
+            "source": "api",
+            "event_type": "cpu_usage",
+            "signal_type": "cpu_usage",
+            "entity_id": "node-1",
+            "payload": {"value": 30},
+        },
+    )
+    assert low.status_code == 200
+
+    high = client.post(
+        "/api/v1/scoring/anomaly",
+        json={
+            "source": "api",
+            "event_type": "cpu_usage",
+            "signal_type": "cpu_usage",
+            "entity_id": "node-1",
+            "payload": {"value": 95},
+        },
+    )
+    assert high.status_code == 200
+    body = high.json()
+    assert any(level == body["severity"] for level in ["low", "medium", "high"])
+    assert "deviation=" in body["explanation"]
+    assert "direction=spike" in body["explanation"] or "direction=drop" in body["explanation"]
