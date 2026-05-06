@@ -74,6 +74,9 @@ class EventService:
         )
 
         score_started = time.perf_counter()
+        scoring_payload = dict(event.payload or {})
+        # Ensure scoring always uses the canonical numeric value persisted on the event.
+        scoring_payload["value"] = event.value
         score = self.scoring_service.score_payload(
             ScoreRequest(
                 source=event.source,
@@ -81,7 +84,7 @@ class EventService:
                 event_type=event.event_type,
                 signal_type=event.signal_type,
                 entity_id=event.entity_id,
-                payload=event.payload,
+                payload=scoring_payload,
             ),
             event_timestamp=event.event_timestamp,
         )
@@ -307,7 +310,16 @@ class EventService:
         anomalies = 0
         alerts_created = 0
         for event in drained:
-            result = self.ingest_event(event)
+            try:
+                result = self.ingest_event(event)
+            except Exception:
+                logger.exception(
+                    "buffer_event_ingest_failed source=%s signal=%s entity=%s",
+                    event.source,
+                    event.signal_type or event.event_type,
+                    event.entity_id,
+                )
+                continue
             if result.is_anomalous:
                 anomalies += 1
             if result.alert_id is not None:
