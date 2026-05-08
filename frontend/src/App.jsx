@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -93,6 +93,18 @@ function App() {
     data: null,
     error: '',
   })
+  const [simulationState, setSimulationState] = useState({
+    active: false,
+    loading: false,
+    error: '',
+    lastResult: null,
+  })
+  const [entityTrend, setEntityTrend] = useState({
+    loading: false,
+    data: null,
+    error: '',
+  })
+  const simulationIntervalRef = useRef(null)
 
   const refreshData = useCallback(async () => {
     try {
@@ -136,11 +148,6 @@ function App() {
             fetchJson('/api/v1/metrics/summary'),
             fetchJson('/api/v1/events/buffer/stats'),
           ])
-        const [events, alerts, metrics] = await Promise.all([
-          fetchJson('/api/v1/events?limit=100'),
-          fetchJson('/api/v1/alerts'),
-          fetchJson('/api/v1/metrics/summary'),
-        ])
         if (alive) {
           setState({
             events,
@@ -248,20 +255,110 @@ function App() {
     }
   }
 
+  const runSimulationStep = useCallback(async () => {
+    try {
+      const result = await fetchJson('/api/v1/events/simulation/start', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          source: replayForm.source,
+          workspace_id: replayForm.workspace_id,
+          entity_id: replayForm.entity_id,
+          steps: 1,
+          interval_seconds: Number(replayForm.interval_seconds),
+          inject_spike_every: Number(replayForm.inject_spike_every),
+          anomaly_probability: 0.08,
+          seed: Number(replayForm.seed),
+        }),
+      })
+      setSimulationState((prev) => ({ ...prev, lastResult: result, error: '' }))
+      await refreshData()
+    } catch (error) {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current)
+        simulationIntervalRef.current = null
+      }
+      setSimulationState((prev) => ({
+        ...prev,
+        error: error.message,
+        active: false,
+      }))
+    }
+  }, [refreshData, replayForm])
+
+  const toggleMonitoringSimulation = useCallback(async () => {
+    if (simulationState.active) {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current)
+        simulationIntervalRef.current = null
+      }
+      setSimulationState((prev) => ({ ...prev, active: false }))
+      return
+    }
+    setSimulationState((prev) => ({ ...prev, loading: true, error: '' }))
+    await runSimulationStep()
+    simulationIntervalRef.current = setInterval(
+      () => {
+        runSimulationStep()
+      },
+      Math.max(Number(replayForm.interval_seconds), 1) * 1000
+    )
+    setSimulationState((prev) => ({ ...prev, active: true, loading: false }))
+  }, [replayForm.interval_seconds, runSimulationStep, simulationState.active])
+
+  const injectAnomaly = async () => {
+    setSimulationState((prev) => ({ ...prev, loading: true, error: '' }))
+    try {
+      await fetchJson('/api/v1/events/simulation/inject-anomaly', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          source: replayForm.source,
+          workspace_id: replayForm.workspace_id,
+          entity_id: replayForm.entity_id,
+          metric: replayForm.signal_type,
+          magnitude: 4.5,
+        }),
+      })
+      await refreshData()
+      setSimulationState((prev) => ({ ...prev, loading: false }))
+    } catch (error) {
+      setSimulationState((prev) => ({
+        ...prev,
+        loading: false,
+        error: error.message,
+      }))
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (simulationIntervalRef.current) {
+        clearInterval(simulationIntervalRef.current)
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (!selectedEntity) {
       setEntityDrilldown({ loading: false, data: null, error: '' })
+      setEntityTrend({ loading: false, data: null, error: '' })
       return
     }
     let alive = true
     const run = async () => {
       setEntityDrilldown({ loading: true, data: null, error: '' })
+      setEntityTrend({ loading: true, data: null, error: '' })
       try {
-        const data = await fetchJson(
-          `/api/v1/metrics/entities/${selectedEntity}`
-        )
+        const [data, trends] = await Promise.all([
+          fetchJson(`/api/v1/metrics/entities/${selectedEntity}`),
+          fetchJson(
+            `/api/v1/metrics/entities/${selectedEntity}/trends?limit=180`
+          ),
+        ])
         if (alive) {
           setEntityDrilldown({ loading: false, data, error: '' })
+          setEntityTrend({ loading: false, data: trends, error: '' })
         }
       } catch (error) {
         if (alive) {
@@ -270,6 +367,7 @@ function App() {
             data: null,
             error: error.message,
           })
+          setEntityTrend({ loading: false, data: null, error: error.message })
         }
       }
     }
@@ -622,10 +720,37 @@ function App() {
               >
                 {replayState.loading ? 'Running replay...' : 'Run replay'}
               </button>
+              <button
+                className="rounded-md bg-emerald-500 px-3 py-1 text-sm font-medium text-slate-950 disabled:opacity-60"
+                disabled={simulationState.loading}
+                onClick={toggleMonitoringSimulation}
+              >
+                {simulationState.active
+                  ? 'Stop monitoring simulation'
+                  : 'Start monitoring simulation'}
+              </button>
+              <button
+                className="rounded-md bg-amber-500 px-3 py-1 text-sm font-medium text-slate-950 disabled:opacity-60"
+                disabled={simulationState.loading}
+                onClick={injectAnomaly}
+              >
+                Inject anomaly
+              </button>
               {replayState.error ? (
                 <p className="text-sm text-rose-400">{replayState.error}</p>
               ) : null}
+              {simulationState.error ? (
+                <p className="text-sm text-rose-400">{simulationState.error}</p>
+              ) : null}
             </div>
+            {simulationState.lastResult ? (
+              <p className="mt-2 text-xs text-slate-400">
+                Last simulation step:{' '}
+                {simulationState.lastResult.ingested_events} events,{' '}
+                {simulationState.lastResult.anomalies_detected} anomalies,{' '}
+                {simulationState.lastResult.alerts_created} alerts.
+              </p>
+            ) : null}
             {replayState.result ? (
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <article className="rounded-md bg-slate-800 p-3">
@@ -728,31 +853,105 @@ function App() {
               ) : null}
             </div>
             {entityDrilldown.data ? (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <article className="rounded-md bg-slate-800 p-3">
-                  <p className="text-xs text-slate-400">Total events</p>
-                  <p className="text-xl font-semibold">
-                    {entityDrilldown.data.total_events}
-                  </p>
-                </article>
-                <article className="rounded-md bg-slate-800 p-3">
-                  <p className="text-xs text-slate-400">Anomalous events</p>
-                  <p className="text-xl font-semibold">
-                    {entityDrilldown.data.anomalous_events}
-                  </p>
-                </article>
-                <article className="rounded-md bg-slate-800 p-3">
-                  <p className="text-xs text-slate-400">Active alerts</p>
-                  <p className="text-xl font-semibold">
-                    {entityDrilldown.data.active_alerts}
-                  </p>
-                </article>
-                <article className="rounded-md bg-slate-800 p-3">
-                  <p className="text-xs text-slate-400">Avg score</p>
-                  <p className="text-xl font-semibold">
-                    {entityDrilldown.data.avg_combined_score}
-                  </p>
-                </article>
+              <div className="mt-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <article className="rounded-md bg-slate-800 p-3">
+                    <p className="text-xs text-slate-400">Total events</p>
+                    <p className="text-xl font-semibold">
+                      {entityDrilldown.data.total_events}
+                    </p>
+                  </article>
+                  <article className="rounded-md bg-slate-800 p-3">
+                    <p className="text-xs text-slate-400">Anomalous events</p>
+                    <p className="text-xl font-semibold">
+                      {entityDrilldown.data.anomalous_events}
+                    </p>
+                  </article>
+                  <article className="rounded-md bg-slate-800 p-3">
+                    <p className="text-xs text-slate-400">Active alerts</p>
+                    <p className="text-xl font-semibold">
+                      {entityDrilldown.data.active_alerts}
+                    </p>
+                  </article>
+                  <article className="rounded-md bg-slate-800 p-3">
+                    <p className="text-xs text-slate-400">Avg score</p>
+                    <p className="text-xl font-semibold">
+                      {entityDrilldown.data.avg_combined_score}
+                    </p>
+                  </article>
+                </div>
+                {entityTrend.data?.points?.length ? (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <article className="rounded-md bg-slate-800 p-3">
+                      <p className="mb-2 text-sm text-slate-300">
+                        Metric trend with anomaly overlay
+                      </p>
+                      <div className="h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={entityTrend.data.points.map((point) => ({
+                              timestamp: new Date(
+                                point.timestamp
+                              ).toLocaleTimeString(),
+                              value: point.value,
+                              anomaly_score: point.combined_score ?? 0,
+                            }))}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#334155"
+                            />
+                            <XAxis dataKey="timestamp" stroke="#cbd5e1" hide />
+                            <YAxis stroke="#cbd5e1" />
+                            <Tooltip />
+                            <Line
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#22d3ee"
+                              dot={false}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="anomaly_score"
+                              stroke="#f97316"
+                              dot={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </article>
+                    <article className="rounded-md bg-slate-800 p-3">
+                      <p className="mb-2 text-sm text-slate-300">
+                        Historical statistics
+                      </p>
+                      <div className="max-h-56 overflow-auto text-sm">
+                        <table className="min-w-full">
+                          <thead className="text-slate-400">
+                            <tr>
+                              <th className="px-2 py-1 text-left">Metric</th>
+                              <th className="px-2 py-1 text-left">Samples</th>
+                              <th className="px-2 py-1 text-left">Mean</th>
+                              <th className="px-2 py-1 text-left">Std Dev</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {entityTrend.data.statistics.map((row) => (
+                              <tr
+                                key={row.metric}
+                                className="border-t border-slate-700"
+                              >
+                                <td className="px-2 py-1">{row.metric}</td>
+                                <td className="px-2 py-1">{row.samples}</td>
+                                <td className="px-2 py-1">{row.mean}</td>
+                                <td className="px-2 py-1">{row.std_dev}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </article>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </section>
@@ -1067,6 +1266,49 @@ function App() {
                       <td className="px-2 py-1">{event.value ?? '-'}</td>
                       <td className="px-2 py-1">
                         {new Date(event.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {(page === 'Dashboard' || page === 'Alerts') && (
+          <section className="rounded-lg bg-slate-900 p-4">
+            <h2 className="mb-3 text-lg font-semibold">Alert feed</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="text-slate-400">
+                    <th className="px-2 py-1">Alert</th>
+                    <th className="px-2 py-1">Metric</th>
+                    <th className="px-2 py-1">Anomaly score</th>
+                    <th className="px-2 py-1">Timestamp</th>
+                    <th className="px-2 py-1">Explanation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.alerts.slice(0, 20).map((alert) => (
+                    <tr
+                      key={alert.id}
+                      className="border-t border-slate-800 align-top"
+                    >
+                      <td className="px-2 py-1">
+                        #{alert.id} ({alert.status})
+                      </td>
+                      <td className="px-2 py-1">{alert.metric ?? '-'}</td>
+                      <td className="px-2 py-1">
+                        {alert.anomaly_score ?? '-'}
+                      </td>
+                      <td className="px-2 py-1">
+                        {alert.anomaly_timestamp
+                          ? new Date(alert.anomaly_timestamp).toLocaleString()
+                          : '-'}
+                      </td>
+                      <td className="px-2 py-1 text-xs text-slate-300">
+                        {alert.explanation ?? '-'}
                       </td>
                     </tr>
                   ))}

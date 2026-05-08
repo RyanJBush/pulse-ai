@@ -9,7 +9,9 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.alert import ALERT_STATUSES, Alert
 from app.models.alert_note import AlertNote
+from app.models.anomaly_score import AnomalyScore
 from app.models.audit_log import AuditLog
+from app.models.event import Event
 from app.models.incident import Incident
 from app.models.suppression_rule import SuppressionRule
 from app.schemas.alert import AlertNoteRead, AlertRead
@@ -132,13 +134,51 @@ class AlertService:
         workspace_id: str | None = None,
     ) -> list[AlertRead]:
         ordering = Alert.created_at.desc() if sort_desc else Alert.created_at.asc()
-        stmt = select(Alert).order_by(ordering)
+        stmt = (
+            select(
+                Alert,
+                Event.signal_type,
+                Event.event_timestamp,
+                AnomalyScore.combined_score,
+                AnomalyScore.details,
+            )
+            .join(Event, Event.id == Alert.event_id)
+            .outerjoin(AnomalyScore, AnomalyScore.id == Alert.anomaly_score_id)
+            .order_by(ordering)
+        )
         if status:
             stmt = stmt.where(Alert.status == status)
         if workspace_id:
             stmt = stmt.where(Alert.workspace_id == workspace_id)
         stmt = stmt.offset(offset).limit(limit)
-        return [AlertRead.model_validate(item) for item in self.db.scalars(stmt).all()]
+        rows = self.db.execute(stmt).all()
+        alerts: list[AlertRead] = []
+        for alert, signal_type, event_timestamp, combined_score, details in rows:
+            alerts.append(
+                AlertRead(
+                    id=alert.id,
+                    event_id=alert.event_id,
+                    workspace_id=alert.workspace_id,
+                    incident_id=alert.incident_id,
+                    anomaly_score_id=alert.anomaly_score_id,
+                    severity=alert.severity,
+                    message=alert.message,
+                    metric=signal_type,
+                    anomaly_score=(
+                        round(float(combined_score), 4)
+                        if combined_score is not None
+                        else None
+                    ),
+                    anomaly_timestamp=event_timestamp,
+                    explanation=(details or {}).get("explanation") if details else None,
+                    status=alert.status,
+                    assigned_owner=alert.assigned_owner,
+                    updated_at=alert.updated_at,
+                    last_transition_at=alert.last_transition_at,
+                    created_at=alert.created_at,
+                )
+            )
+        return alerts
 
     def update_status(
         self, alert_id: int, status: str, author: str, note: str | None = None

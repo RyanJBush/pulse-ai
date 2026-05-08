@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from statistics import mean, pstdev
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -8,7 +9,13 @@ from app.core.config import settings
 from app.models.alert import Alert
 from app.models.anomaly_score import AnomalyScore
 from app.models.event import Event
-from app.schemas.metrics import EntityDrilldownMetrics, KpiSummary
+from app.schemas.metrics import (
+    EntityDrilldownMetrics,
+    EntityMetricTrendResponse,
+    EntityTrendPoint,
+    KpiSummary,
+    MetricStatistics,
+)
 
 
 class MetricsService:
@@ -124,3 +131,51 @@ class MetricsService:
             severity_distribution=severity_distribution,
             reason_code_distribution=reason_code_distribution,
         )
+
+    def entity_metric_trends(self, entity_id: str, limit: int = 180) -> EntityMetricTrendResponse:
+        rows = self.db.execute(
+            select(
+                Event.event_timestamp,
+                Event.signal_type,
+                Event.value,
+                AnomalyScore.is_anomalous,
+                AnomalyScore.combined_score,
+            )
+            .select_from(Event)
+            .outerjoin(AnomalyScore, AnomalyScore.event_id == Event.id)
+            .where(Event.entity_id == entity_id)
+            .order_by(Event.event_timestamp.desc())
+            .limit(limit)
+        ).all()
+
+        points = [
+            EntityTrendPoint(
+                timestamp=row[0],
+                metric=row[1],
+                value=float(row[2]),
+                is_anomalous=bool(row[3]) if row[3] is not None else False,
+                combined_score=round(float(row[4]), 4) if row[4] is not None else None,
+            )
+            for row in reversed(rows)
+        ]
+
+        per_metric_values: dict[str, list[float]] = {}
+        for point in points:
+            per_metric_values.setdefault(point.metric, []).append(point.value)
+
+        statistics = []
+        for metric, values in sorted(per_metric_values.items()):
+            metric_mean = mean(values)
+            metric_std = pstdev(values) if len(values) > 1 else 0.0
+            statistics.append(
+                MetricStatistics(
+                    metric=metric,
+                    samples=len(values),
+                    mean=round(float(metric_mean), 4),
+                    std_dev=round(float(metric_std), 4),
+                    min_value=round(float(min(values)), 4),
+                    max_value=round(float(max(values)), 4),
+                )
+            )
+
+        return EntityMetricTrendResponse(entity_id=entity_id, points=points, statistics=statistics)

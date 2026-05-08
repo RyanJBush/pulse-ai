@@ -43,6 +43,14 @@ def test_alert_lifecycle_and_notes(client):
     assert notes.status_code == 200
     assert len(notes.json()) >= 2
 
+    alerts = client.get("/api/v1/alerts")
+    assert alerts.status_code == 200
+    row = alerts.json()[0]
+    assert row["metric"] == "latency"
+    assert row["anomaly_score"] is not None
+    assert row["anomaly_timestamp"] is not None
+    assert row["explanation"]
+
 
 def test_metrics_summary_and_entity_drilldown(client):
     for value in [18.0, 18.5, 19.0, 18.7, 45.0, 18.6]:
@@ -66,3 +74,10 @@ def test_metrics_summary_and_entity_drilldown(client):
     assert drilldown_body["total_events"] == 6
     assert "severity_distribution" in drilldown_body
     assert "reason_code_distribution" in drilldown_body
+
+    trends = client.get("/api/v1/metrics/entities/entity-metrics-1/trends", params={"limit": 20})
+    assert trends.status_code == 200
+    trend_body = trends.json()
+    assert trend_body["entity_id"] == "entity-metrics-1"
+    assert trend_body["points"]
+    assert trend_body["statistics"]

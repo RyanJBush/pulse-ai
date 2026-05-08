@@ -40,6 +40,11 @@ class EventIngestResponse(BaseModel):
     confidence_score: float
     severity: str
     reason_codes: list[str]
+    explanation: str
+    baseline_mean: float
+    baseline_std_dev: float
+    deviation_percent: float
+    direction: str
     is_anomalous: bool
     alert_id: int | None
 
@@ -80,6 +85,11 @@ class EventScoreRead(BaseModel):
     confidence_score: float
     severity: str
     reason_codes: list[str]
+    explanation: str
+    baseline_mean: float
+    baseline_std_dev: float
+    deviation_percent: float
+    direction: str
     is_anomalous: bool
     selected_detector: str
     scoring_latency_ms: float
@@ -111,3 +121,29 @@ class BufferStatsResponse(BaseModel):
     queued: int
     total_enqueued: int
     total_flushed: int
+
+
+class SimulationStartRequest(BaseModel):
+    source: str = "monitoring-sim"
+    workspace_id: str = "default"
+    entity_id: str = "entity-sim-1"
+    steps: int = Field(default=10, ge=1, le=300)
+    interval_seconds: int = Field(default=5, ge=1, le=300)
+    inject_spike_every: int = Field(default=0, ge=0, le=200)
+    anomaly_probability: float = Field(default=0.05, ge=0.0, le=1.0)
+    seed: int = 42
+
+
+class SimulationStartResponse(BaseModel):
+    run_id: str
+    ingested_events: int
+    anomalies_detected: int
+    alerts_created: int
+
+
+class SimulationInjectRequest(BaseModel):
+    source: str = "monitoring-sim"
+    workspace_id: str = "default"
+    entity_id: str = "entity-sim-1"
+    metric: str = "api_latency"
+    magnitude: float = Field(default=4.0, ge=1.2, le=20.0)

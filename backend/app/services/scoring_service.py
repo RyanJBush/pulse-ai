@@ -29,6 +29,12 @@ class ScoringService:
     _detector_profiles: dict[str, dict[str, float]] = {
         "latency": {"z_score": 0.3, "isolation": 0.35, "rolling": 0.25, "seasonal": 0.1},
         "cpu": {"z_score": 0.35, "isolation": 0.35, "rolling": 0.2, "seasonal": 0.1},
+        "request_volume": {
+            "z_score": 0.25,
+            "isolation": 0.25,
+            "rolling": 0.4,
+            "seasonal": 0.1,
+        },
         "error_rate": {"z_score": 0.4, "isolation": 0.25, "rolling": 0.25, "seasonal": 0.1},
         "default": {"z_score": 0.3, "isolation": 0.3, "rolling": 0.25, "seasonal": 0.15},
     }
@@ -199,7 +205,11 @@ class ScoringService:
             baseline_mean = value
             deviation_pct = 0.0
 
-        if z_value >= 0:
+        baseline_std_dev = pstdev(history) if len(history) > 1 else 0.0
+        if len(history) >= 2 and abs(z_value) < 0.15 and abs(deviation_pct) < 1.0:
+            direction = "steady"
+            direction_reason = "value is near baseline"
+        elif z_value >= 0:
             direction = "spike"
             direction_reason = "value is above baseline"
         else:
@@ -226,4 +236,8 @@ class ScoringService:
             reason_codes=reason_codes,
             is_anomalous=is_anomalous,
             explanation=explanation,
+            baseline_mean=round(float(baseline_mean), 4),
+            baseline_std_dev=round(float(baseline_std_dev), 4),
+            deviation_percent=round(float(deviation_pct), 4),
+            direction=direction,
         )

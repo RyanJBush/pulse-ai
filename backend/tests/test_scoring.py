@@ -26,6 +26,10 @@ def test_scoring_endpoint_works(client):
         "reason_codes",
         "is_anomalous",
         "explanation",
+        "baseline_mean",
+        "baseline_std_dev",
+        "deviation_percent",
+        "direction",
     }
     assert body["selected_detector"] in {"error_rate", "default"}
 

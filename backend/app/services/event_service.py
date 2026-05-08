@@ -25,6 +25,9 @@ from app.schemas.event import (
     ReplayRequest,
     ReplayResponse,
     ScoredEventRead,
+    SimulationInjectRequest,
+    SimulationStartRequest,
+    SimulationStartResponse,
 )
 from app.schemas.scoring import ScoreRequest
 from app.services.alert_service import AlertService
@@ -47,6 +50,17 @@ class EventService:
             return float(raw)
         except (TypeError, ValueError):
             return 0.0
+
+    @staticmethod
+    def _normalize_metric(metric: str) -> str:
+        lookup_key = metric.strip().lower()
+        aliases = {
+            "cpu": "cpu_usage",
+            "latency": "api_latency",
+            "request_volume": "request_volume",
+            "requests": "request_volume",
+        }
+        return aliases.get(lookup_key, lookup_key)
 
     def ingest_event(self, payload: EventCreate) -> EventIngestResponse:
         signal_type = payload.signal_type or payload.event_type
@@ -107,7 +121,15 @@ class EventService:
             severity=score.severity,
             reason_codes=score.reason_codes,
             scoring_latency_ms=score_latency_ms,
-            details={"detector_scores": score.detector_scores, "drift_hook": drift_hook},
+            details={
+                "detector_scores": score.detector_scores,
+                "drift_hook": drift_hook,
+                "explanation": score.explanation,
+                "baseline_mean": score.baseline_mean,
+                "baseline_std_dev": score.baseline_std_dev,
+                "deviation_percent": score.deviation_percent,
+                "direction": score.direction,
+            },
         )
         self.db.add(db_score)
         self.db.commit()
@@ -129,6 +151,7 @@ class EventService:
                     "reason_codes": score.reason_codes,
                     "confidence_score": score.confidence_score,
                     "dynamic_threshold": score.dynamic_threshold,
+                    "explanation": score.explanation,
                 },
             )
             alert_id = alert.id if alert else None
@@ -144,6 +167,11 @@ class EventService:
             confidence_score=score.confidence_score,
             severity=score.severity,
             reason_codes=score.reason_codes,
+            explanation=score.explanation,
+            baseline_mean=score.baseline_mean,
+            baseline_std_dev=score.baseline_std_dev,
+            deviation_percent=score.deviation_percent,
+            direction=score.direction,
             is_anomalous=score.is_anomalous,
             alert_id=alert_id,
         )
@@ -286,6 +314,15 @@ class EventService:
                             confidence_score=score.confidence_score,
                             severity=score.severity,
                             reason_codes=score.reason_codes,
+                            explanation=(score.details or {}).get("explanation", ""),
+                            baseline_mean=float((score.details or {}).get("baseline_mean", 0.0)),
+                            baseline_std_dev=float(
+                                (score.details or {}).get("baseline_std_dev", 0.0)
+                            ),
+                            deviation_percent=float(
+                                (score.details or {}).get("deviation_percent", 0.0)
+                            ),
+                            direction=(score.details or {}).get("direction", "spike"),
                             is_anomalous=score.is_anomalous,
                             selected_detector=score.selected_detector,
                             scoring_latency_ms=score.scoring_latency_ms,
@@ -338,3 +375,124 @@ class EventService:
 
     def buffer_stats(self) -> BufferStatsResponse:
         return BufferStatsResponse(**buffer_instance.stats())
+
+    def run_monitoring_simulation(self, payload: SimulationStartRequest) -> SimulationStartResponse:
+        rng = random.Random(payload.seed)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        run_id = str(uuid4())
+        metrics = ("cpu_usage", "api_latency", "request_volume")
+
+        ingested = 0
+        anomalous = 0
+        alert_ids: set[int] = set()
+        for step in range(payload.steps):
+            event_ts = now + timedelta(seconds=step * payload.interval_seconds)
+            for metric in metrics:
+                baseline = self._baseline_metric_value(metric=metric, step=step, rng=rng)
+                is_injected = False
+                if (
+                    payload.inject_spike_every > 0
+                    and step > 0
+                    and step % payload.inject_spike_every == 0
+                ):
+                    baseline *= settings.REPLAY_SPIKE_MULTIPLIER
+                    is_injected = True
+                elif rng.random() < payload.anomaly_probability:
+                    baseline *= rng.uniform(2.2, 4.2)
+                    is_injected = True
+
+                response = self.ingest_event(
+                    EventCreate(
+                        source=payload.source,
+                        workspace_id=payload.workspace_id,
+                        event_type=metric,
+                        signal_type=metric,
+                        entity_id=payload.entity_id,
+                        event_timestamp=event_ts,
+                        value=round(baseline, 4),
+                        payload={
+                            "value": round(baseline, 4),
+                            "metric": metric,
+                            "run_id": run_id,
+                            "step": step,
+                            "is_injected_anomaly": is_injected,
+                        },
+                    )
+                )
+                ingested += 1
+                if response.is_anomalous:
+                    anomalous += 1
+                if response.alert_id is not None:
+                    alert_ids.add(response.alert_id)
+        logger.info(
+            "simulation_run_completed run_id=%s steps=%s ingested=%s anomalous=%s alerts=%s",
+            run_id,
+            payload.steps,
+            ingested,
+            anomalous,
+            len(alert_ids),
+        )
+        return SimulationStartResponse(
+            run_id=run_id,
+            ingested_events=ingested,
+            anomalies_detected=anomalous,
+            alerts_created=len(alert_ids),
+        )
+
+    def inject_anomaly(self, payload: SimulationInjectRequest) -> EventIngestResponse:
+        metric = self._normalize_metric(payload.metric)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        baseline = self._recent_baseline_for(
+            source=payload.source,
+            workspace_id=payload.workspace_id,
+            entity_id=payload.entity_id,
+            metric=metric,
+        )
+        anomaly_value = baseline * payload.magnitude
+        return self.ingest_event(
+            EventCreate(
+                source=payload.source,
+                workspace_id=payload.workspace_id,
+                event_type=metric,
+                signal_type=metric,
+                entity_id=payload.entity_id,
+                event_timestamp=now,
+                value=round(anomaly_value, 4),
+                payload={
+                    "value": round(anomaly_value, 4),
+                    "metric": metric,
+                    "is_injected_anomaly": True,
+                    "injected_magnitude": payload.magnitude,
+                    "baseline_reference": baseline,
+                },
+            )
+        )
+
+    def _baseline_metric_value(self, metric: str, step: int, rng: random.Random) -> float:
+        if metric == "cpu_usage":
+            return 45.0 + (12.0 * math.sin(step / 5.0)) + rng.uniform(-3.0, 3.0)
+        if metric == "api_latency":
+            return 110.0 + (25.0 * math.sin(step / 7.0)) + rng.uniform(-8.0, 8.0)
+        if metric == "request_volume":
+            return 260.0 + (45.0 * math.cos(step / 4.0)) + rng.uniform(-12.0, 12.0)
+        return 50.0 + rng.uniform(-5.0, 5.0)
+
+    def _recent_baseline_for(
+        self,
+        source: str,
+        workspace_id: str,
+        entity_id: str,
+        metric: str,
+    ) -> float:
+        rows = self.db.scalars(
+            select(Event.value)
+            .where(Event.source == source)
+            .where(Event.workspace_id == workspace_id)
+            .where(Event.entity_id == entity_id)
+            .where(Event.signal_type == metric)
+            .order_by(Event.event_timestamp.desc())
+            .limit(25)
+        ).all()
+        if not rows:
+            return self._baseline_metric_value(metric=metric, step=0, rng=random.Random(42))
+        return max(sum(float(v) for v in rows) / len(rows), 1.0)

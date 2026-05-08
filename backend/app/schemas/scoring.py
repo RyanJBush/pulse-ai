@@ -24,3 +24,7 @@ class ScoreResponse(BaseModel):
     reason_codes: list[str]
     is_anomalous: bool
     explanation: str
+    baseline_mean: float
+    baseline_std_dev: float
+    deviation_percent: float
+    direction: str
