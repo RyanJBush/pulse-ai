@@ -278,7 +278,11 @@ function App() {
         clearInterval(simulationIntervalRef.current)
         simulationIntervalRef.current = null
       }
-      setSimulationState((prev) => ({ ...prev, error: error.message, active: false }))
+      setSimulationState((prev) => ({
+        ...prev,
+        error: error.message,
+        active: false,
+      }))
     }
   }, [refreshData, replayForm])
 
@@ -293,9 +297,12 @@ function App() {
     }
     setSimulationState((prev) => ({ ...prev, loading: true, error: '' }))
     await runSimulationStep()
-    simulationIntervalRef.current = setInterval(() => {
-      runSimulationStep()
-    }, Math.max(Number(replayForm.interval_seconds), 1) * 1000)
+    simulationIntervalRef.current = setInterval(
+      () => {
+        runSimulationStep()
+      },
+      Math.max(Number(replayForm.interval_seconds), 1) * 1000
+    )
     setSimulationState((prev) => ({ ...prev, active: true, loading: false }))
   }, [replayForm.interval_seconds, runSimulationStep, simulationState.active])
 
@@ -345,7 +352,9 @@ function App() {
       try {
         const [data, trends] = await Promise.all([
           fetchJson(`/api/v1/metrics/entities/${selectedEntity}`),
-          fetchJson(`/api/v1/metrics/entities/${selectedEntity}/trends?limit=180`),
+          fetchJson(
+            `/api/v1/metrics/entities/${selectedEntity}/trends?limit=180`
+          ),
         ])
         if (alive) {
           setEntityDrilldown({ loading: false, data, error: '' })
@@ -736,8 +745,9 @@ function App() {
             </div>
             {simulationState.lastResult ? (
               <p className="mt-2 text-xs text-slate-400">
-                Last simulation step: {simulationState.lastResult.ingested_events}{' '}
-                events, {simulationState.lastResult.anomalies_detected} anomalies,{' '}
+                Last simulation step:{' '}
+                {simulationState.lastResult.ingested_events} events,{' '}
+                {simulationState.lastResult.anomalies_detected} anomalies,{' '}
                 {simulationState.lastResult.alerts_created} alerts.
               </p>
             ) : null}
@@ -880,16 +890,26 @@ function App() {
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart
                             data={entityTrend.data.points.map((point) => ({
-                              timestamp: new Date(point.timestamp).toLocaleTimeString(),
+                              timestamp: new Date(
+                                point.timestamp
+                              ).toLocaleTimeString(),
                               value: point.value,
                               anomaly_score: point.combined_score ?? 0,
                             }))}
                           >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#334155"
+                            />
                             <XAxis dataKey="timestamp" stroke="#cbd5e1" hide />
                             <YAxis stroke="#cbd5e1" />
                             <Tooltip />
-                            <Line type="monotone" dataKey="value" stroke="#22d3ee" dot={false} />
+                            <Line
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#22d3ee"
+                              dot={false}
+                            />
                             <Line
                               type="monotone"
                               dataKey="anomaly_score"
@@ -901,7 +921,9 @@ function App() {
                       </div>
                     </article>
                     <article className="rounded-md bg-slate-800 p-3">
-                      <p className="mb-2 text-sm text-slate-300">Historical statistics</p>
+                      <p className="mb-2 text-sm text-slate-300">
+                        Historical statistics
+                      </p>
                       <div className="max-h-56 overflow-auto text-sm">
                         <table className="min-w-full">
                           <thead className="text-slate-400">
@@ -914,7 +936,10 @@ function App() {
                           </thead>
                           <tbody>
                             {entityTrend.data.statistics.map((row) => (
-                              <tr key={row.metric} className="border-t border-slate-700">
+                              <tr
+                                key={row.metric}
+                                className="border-t border-slate-700"
+                              >
                                 <td className="px-2 py-1">{row.metric}</td>
                                 <td className="px-2 py-1">{row.samples}</td>
                                 <td className="px-2 py-1">{row.mean}</td>
@@ -1266,12 +1291,17 @@ function App() {
                 </thead>
                 <tbody>
                   {state.alerts.slice(0, 20).map((alert) => (
-                    <tr key={alert.id} className="border-t border-slate-800 align-top">
+                    <tr
+                      key={alert.id}
+                      className="border-t border-slate-800 align-top"
+                    >
                       <td className="px-2 py-1">
                         #{alert.id} ({alert.status})
                       </td>
                       <td className="px-2 py-1">{alert.metric ?? '-'}</td>
-                      <td className="px-2 py-1">{alert.anomaly_score ?? '-'}</td>
+                      <td className="px-2 py-1">
+                        {alert.anomaly_score ?? '-'}
+                      </td>
                       <td className="px-2 py-1">
                         {alert.anomaly_timestamp
                           ? new Date(alert.anomaly_timestamp).toLocaleString()

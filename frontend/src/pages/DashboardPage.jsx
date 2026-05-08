@@ -18,7 +18,9 @@ export default function DashboardPage() {
 
   const kpis = useMemo(() => {
     const events = scoredEvents.map((item) => item.event)
-    const anomalous = scoredEvents.filter((item) => item.score?.is_anomalous).length
+    const anomalous = scoredEvents.filter(
+      (item) => item.score?.is_anomalous
+    ).length
     const anomalyRate = scoredEvents.length
       ? ((anomalous / scoredEvents.length) * 100).toFixed(1)
       : '0.0'

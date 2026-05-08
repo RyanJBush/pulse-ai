@@ -206,7 +206,10 @@ class ScoringService:
             deviation_pct = 0.0
 
         baseline_std_dev = pstdev(history) if len(history) > 1 else 0.0
-        if value >= baseline_mean:
+        if len(history) >= 2 and abs(z_value) < 0.15 and abs(deviation_pct) < 1.0:
+            direction = "steady"
+            direction_reason = "value is near baseline"
+        elif z_value >= 0:
             direction = "spike"
             direction_reason = "value is above baseline"
         else:

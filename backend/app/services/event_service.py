@@ -24,10 +24,10 @@ from app.schemas.event import (
     EventScoreRead,
     ReplayRequest,
     ReplayResponse,
+    ScoredEventRead,
     SimulationInjectRequest,
     SimulationStartRequest,
     SimulationStartResponse,
-    ScoredEventRead,
 )
 from app.schemas.scoring import ScoreRequest
 from app.services.alert_service import AlertService
@@ -53,14 +53,14 @@ class EventService:
 
     @staticmethod
     def _normalize_metric(metric: str) -> str:
-        normalized = metric.strip().lower()
+        lookup_key = metric.strip().lower()
         aliases = {
             "cpu": "cpu_usage",
             "latency": "api_latency",
             "request_volume": "request_volume",
             "requests": "request_volume",
         }
-        return aliases.get(normalized, normalized)
+        return aliases.get(lookup_key, lookup_key)
 
     def ingest_event(self, payload: EventCreate) -> EventIngestResponse:
         signal_type = payload.signal_type or payload.event_type
@@ -390,7 +390,11 @@ class EventService:
             for metric in metrics:
                 baseline = self._baseline_metric_value(metric=metric, step=step, rng=rng)
                 is_injected = False
-                if payload.inject_spike_every > 0 and step > 0 and step % payload.inject_spike_every == 0:
+                if (
+                    payload.inject_spike_every > 0
+                    and step > 0
+                    and step % payload.inject_spike_every == 0
+                ):
                     baseline *= settings.REPLAY_SPIKE_MULTIPLIER
                     is_injected = True
                 elif rng.random() < payload.anomaly_probability:

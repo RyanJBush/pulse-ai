@@ -12,10 +12,10 @@ from app.schemas.event import (
     EventRead,
     ReplayRequest,
     ReplayResponse,
+    ScoredEventRead,
     SimulationInjectRequest,
     SimulationStartRequest,
     SimulationStartResponse,
-    ScoredEventRead,
 )
 from app.services.event_service import EventService
 

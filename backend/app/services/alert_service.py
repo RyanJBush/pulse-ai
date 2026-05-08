@@ -135,7 +135,13 @@ class AlertService:
     ) -> list[AlertRead]:
         ordering = Alert.created_at.desc() if sort_desc else Alert.created_at.asc()
         stmt = (
-            select(Alert, Event.signal_type, Event.event_timestamp, AnomalyScore.combined_score, AnomalyScore.details)
+            select(
+                Alert,
+                Event.signal_type,
+                Event.event_timestamp,
+                AnomalyScore.combined_score,
+                AnomalyScore.details,
+            )
             .join(Event, Event.id == Alert.event_id)
             .outerjoin(AnomalyScore, AnomalyScore.id == Alert.anomaly_score_id)
             .order_by(ordering)
@@ -158,7 +164,11 @@ class AlertService:
                     severity=alert.severity,
                     message=alert.message,
                     metric=signal_type,
-                    anomaly_score=round(float(combined_score), 4) if combined_score is not None else None,
+                    anomaly_score=(
+                        round(float(combined_score), 4)
+                        if combined_score is not None
+                        else None
+                    ),
                     anomaly_timestamp=event_timestamp,
                     explanation=(details or {}).get("explanation") if details else None,
                     status=alert.status,
