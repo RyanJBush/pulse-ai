@@ -26,6 +26,8 @@ Pulse AI is a production-style anomaly detection and monitoring platform with:
   - `GET /api/v1/events`
   - `GET /api/v1/events/scored`
   - `POST /api/v1/events/replay`
+  - `POST /api/v1/events/simulation/start`
+  - `POST /api/v1/events/simulation/inject-anomaly`
   - `POST /api/v1/events/buffer/enqueue`
   - `POST /api/v1/events/buffer/flush`
   - `GET /api/v1/events/buffer/stats`
@@ -42,6 +44,7 @@ Pulse AI is a production-style anomaly detection and monitoring platform with:
 - Metrics:
   - `GET /api/v1/metrics/summary`
   - `GET /api/v1/metrics/entities/{entity_id}`
+  - `GET /api/v1/metrics/entities/{entity_id}/trends`
 - Evaluation:
   - `POST /api/v1/evaluation/seeded-benchmark`
   - `POST /api/v1/evaluation/threshold-tuning`
@@ -65,6 +68,8 @@ Pulse AI is a production-style MVP monorepo for real-time anomaly detection. It 
 - `GET /api/v1/events`
 - `GET /api/v1/events/scored`
 - `POST /api/v1/events/replay`
+- `POST /api/v1/events/simulation/start`
+- `POST /api/v1/events/simulation/inject-anomaly`
 - `POST /api/v1/scoring/anomaly`
 - `GET /api/v1/alerts`
 - `PATCH /api/v1/alerts/{id}/status`
@@ -125,6 +130,12 @@ This script triggers replay and prints:
 - replay metadata (`replay_run_id`, duration),
 - latest KPI summary,
 - latest anomalous scored events.
+
+For interactive real-time simulation in the UI:
+
+1. Open the dashboard (`http://localhost:5173` in Vite dev mode).
+2. Use **Start monitoring simulation** to begin periodic CPU/API latency/request volume updates.
+3. Use **Inject anomaly** to force a high-confidence anomaly event for live demo alerting.
 
 You can also run custom parameters:
 

@@ -11,6 +11,10 @@ class AlertRead(BaseModel):
     anomaly_score_id: int | None = None
     severity: str
     message: str
+    metric: str | None = None
+    anomaly_score: float | None = None
+    anomaly_timestamp: datetime | None = None
+    explanation: str | None = None
     status: str
     assigned_owner: str | None = None
     updated_at: datetime

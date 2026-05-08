@@ -21,3 +21,26 @@ class EntityDrilldownMetrics(BaseModel):
     last_event_at: datetime | None
     severity_distribution: dict[str, int]
     reason_code_distribution: dict[str, int]
+
+
+class EntityTrendPoint(BaseModel):
+    timestamp: datetime
+    metric: str
+    value: float
+    is_anomalous: bool
+    combined_score: float | None = None
+
+
+class MetricStatistics(BaseModel):
+    metric: str
+    samples: int
+    mean: float
+    std_dev: float
+    min_value: float
+    max_value: float
+
+
+class EntityMetricTrendResponse(BaseModel):
+    entity_id: str
+    points: list[EntityTrendPoint]
+    statistics: list[MetricStatistics]

@@ -40,3 +40,37 @@ def test_event_buffer_enqueue_flush_and_stats(client):
     events = client.get("/api/v1/events", params={"workspace_id": "ws-buffer"})
     assert events.status_code == 200
     assert len(events.json()) >= 2
+
+
+def test_monitoring_simulation_start_and_anomaly_injection(client):
+    start = client.post(
+        "/api/v1/events/simulation/start",
+        json={
+            "workspace_id": "ws-sim",
+            "source": "monitoring-sim",
+            "entity_id": "entity-sim-1",
+            "steps": 4,
+            "interval_seconds": 1,
+            "inject_spike_every": 2,
+            "seed": 99,
+        },
+    )
+    assert start.status_code == 200
+    start_body = start.json()
+    assert start_body["ingested_events"] == 12
+    assert start_body["run_id"]
+
+    inject = client.post(
+        "/api/v1/events/simulation/inject-anomaly",
+        json={
+            "workspace_id": "ws-sim",
+            "source": "monitoring-sim",
+            "entity_id": "entity-sim-1",
+            "metric": "request_volume",
+            "magnitude": 5.0,
+        },
+    )
+    assert inject.status_code == 201
+    inject_body = inject.json()
+    assert inject_body["event"]["signal_type"] == "request_volume"
+    assert "explanation" in inject_body

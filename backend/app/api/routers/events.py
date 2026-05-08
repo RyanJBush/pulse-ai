@@ -12,6 +12,9 @@ from app.schemas.event import (
     EventRead,
     ReplayRequest,
     ReplayResponse,
+    SimulationInjectRequest,
+    SimulationStartRequest,
+    SimulationStartResponse,
     ScoredEventRead,
 )
 from app.services.event_service import EventService
@@ -78,3 +81,17 @@ def flush_buffer(
 @router.get("/buffer/stats", response_model=BufferStatsResponse)
 def buffer_stats(db: Session = Depends(get_db)) -> BufferStatsResponse:
     return EventService(db).buffer_stats()
+
+
+@router.post("/simulation/start", response_model=SimulationStartResponse)
+def start_monitoring_simulation(
+    payload: SimulationStartRequest, db: Session = Depends(get_db)
+) -> SimulationStartResponse:
+    return EventService(db).run_monitoring_simulation(payload)
+
+
+@router.post("/simulation/inject-anomaly", response_model=EventIngestResponse, status_code=201)
+def inject_simulation_anomaly(
+    payload: SimulationInjectRequest, db: Session = Depends(get_db)
+) -> EventIngestResponse:
+    return EventService(db).inject_anomaly(payload)
