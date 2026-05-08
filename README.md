@@ -22,6 +22,51 @@ Observability platforms are everywhere in production engineering, but the intern
 
 ---
 
+## 🏗️ Architecture
+
+```mermaid
+flowchart TD
+    subgraph Ingestion["Ingestion Layer"]
+        SIM["Event Simulator\n(synthetic / replay)"]
+        BATCH["Batch Ingest\n/api/events"]
+    end
+
+    subgraph API["FastAPI Backend"]
+        R_EVENTS["events router"]
+        R_ALERTS["alerts router"]
+        R_INCIDENTS["incidents router"]
+        R_EVAL["evaluation router"]
+        R_METRICS["metrics router"]
+    end
+
+    subgraph Detection["Detection Engine"]
+        ZSCORE["Z-Score\nDetector"]
+        IFOREST["Isolation Forest\n(scikit-learn)"]
+        ROLLING["Rolling Mean\nBaseline"]
+        SEASONAL["Seasonal\nBaseline"]
+        BLEND["Confidence\nBlender"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL\nEvents · Alerts · Incidents")]
+    end
+
+    subgraph UI["Operator Dashboard"]
+        DASH["React + Recharts\nLive KPIs · Trend Charts"]
+    end
+
+    SIM --> R_EVENTS
+    BATCH --> R_EVENTS
+    R_EVENTS --> ZSCORE & IFOREST & ROLLING & SEASONAL
+    ZSCORE & IFOREST & ROLLING & SEASONAL --> BLEND
+    BLEND --> R_ALERTS
+    R_ALERTS --> R_INCIDENTS
+    R_EVENTS & R_ALERTS & R_INCIDENTS --> PG
+    DASH -->|REST| R_ALERTS & R_INCIDENTS & R_METRICS & R_EVAL
+```
+
+---
+
 ## 📷 Features
 
 - **Real-time event ingestion** — stream, simulate, and batch-replay security/metric events
@@ -57,7 +102,6 @@ Observability platforms are everywhere in production engineering, but the intern
 docker compose up --build
 # Backend API docs: http://localhost:8000/docs
 # Frontend:         http://localhost:5173
-# PostgreSQL:        localhost:5432
 ```
 
 ### Local Development
@@ -71,27 +115,15 @@ npm --prefix frontend install
 npm --prefix frontend run dev
 ```
 
-Set `VITE_API_BASE_URL` if the backend is not running on `http://localhost:8000`.
-
 ### Demo — Replay & Simulation
 ```bash
-# Run synthetic replay demo (prints replay metadata + anomalous events)
 make demo-replay
-
-# Or with custom parameters
 python backend/scripts/run_demo.py --count 200 --seed 77 --spike-every 10
 ```
 
-For the interactive UI demo:
-1. Open the dashboard at `http://localhost:5173`
-2. Click **Start monitoring simulation** to begin periodic CPU/API latency/request volume updates
-3. Click **Inject anomaly** to force a high-confidence anomaly event for live alert demo
-
 ### Quality Checks
 ```bash
-make lint
-make test
-make build
+make lint && make test && make build
 ```
 
 ---
@@ -99,7 +131,7 @@ make build
 ## 🗂️ Repository Structure
 
 ```
-backend/    FastAPI API, SQLAlchemy models, anomaly scoring, evaluation logic, pytest + ruff
+backend/    FastAPI API, SQLAlchemy models, anomaly scoring, evaluation logic
 frontend/   React + Vite operator dashboard
 docs/       Architecture, API reference, deployment guide, demo walkthrough
 ```
@@ -109,18 +141,8 @@ docs/       Architecture, API reference, deployment guide, demo walkthrough
 ## 📝 Key Learnings
 
 - Blended detectors (Z-score + Isolation Forest) meaningfully outperform single-algorithm approaches, especially on irregular metric shapes
-- Replay/evaluation tooling is as important as the detector itself — you can't responsibly tune thresholds without a way to test them against historical data
+- Replay/evaluation tooling is as important as the detector itself — you can't responsibly tune thresholds without testing against historical data
 - Incident management (grouping + lifecycle) is the difference between a monitoring tool and a useful operations product
-
----
-
-## 📄 Additional Docs
-
-- API reference: `docs/api.md`
-- Architecture overview: `docs/architecture.md`
-- Deployment guide: `docs/deployment.md`
-- Demo walkthrough: `docs/demo.md`
-- Repository guide: `docs/repository-guide.md`
 
 ---
 
