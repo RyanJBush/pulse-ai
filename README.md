@@ -6,7 +6,11 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 ![CI](https://github.com/RyanJBush/Real-time-anomaly-detection-and-monitoring-platform/actions/workflows/ci.yml/badge.svg)
 
-# Pulse AI
+# Orbit
+
+**Real-Time Anomaly Detection & Monitoring Platform**
+
+[**🔗 View Live Preview →**](https://www.perplexity.ai/computer/a/orbit-preview-project-8-of-9-lCA5DWRgQoa4AN6VYPXAUQ)
 
 > A production-style anomaly detection and monitoring platform that ingests real-time events, scores them with a blended ML pipeline, generates alerts, and exposes a live operator dashboard — built to mirror how observability tools like Datadog and New Relic work under the hood.
 
@@ -14,11 +18,11 @@
 
 ## 🎯 What I Built & Why
 
-Observability platforms are everywhere in production engineering, but the internals — how an event stream becomes an alert, how anomaly thresholds are tuned, how incidents are tracked — are rarely taught. I built Pulse AI to work through that entire lifecycle end-to-end:
+Observability platforms are everywhere in production engineering, but the internals — how an event stream becomes an alert, how anomaly thresholds are tuned, how incidents are tracked — are rarely taught. I built Orbit to work through that entire lifecycle end-to-end:
 
 - **Blended scoring** — Z-score + Isolation Forest + rolling/seasonal baselines, combined into a single confidence score. No single algorithm catches all anomaly shapes; combining them reduces both false positives and missed events.
 - **Replay & evaluation tooling** — detector configuration is only as good as its evaluation. The replay engine lets you test threshold changes against historical event windows before deploying them.
-- **Incident workflow** — alerts alone aren't enough. Pulse AI groups alerts into incidents and provides a notes/status lifecycle so analysts can track investigation state without leaving the platform.
+- **Incident workflow** — alerts alone aren't enough. Orbit groups alerts into incidents and provides a notes/status lifecycle so analysts can track investigation state without leaving the platform.
 
 ---
 
