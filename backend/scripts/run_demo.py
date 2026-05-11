@@ -6,7 +6,12 @@ import json
 from urllib import request
 
 
-def post_json(base_url: str, path: str, payload: dict, headers: dict[str, str] | None = None) -> dict:
+def post_json(
+    base_url: str,
+    path: str,
+    payload: dict,
+    headers: dict[str, str] | None = None,
+) -> dict:
     body = json.dumps(payload).encode("utf-8")
     req = request.Request(
         f"{base_url}{path}",
