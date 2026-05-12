@@ -2,16 +2,14 @@
 
 ## ATS-friendly bullets
 
-- Built Orbit, a local anomaly detection and monitoring portfolio demo using FastAPI, PostgreSQL, React, and Docker Compose.
-- Implemented deterministic replay ingestion to simulate streaming-style event flow for repeatable anomaly analysis scenarios.
-- Developed blended anomaly scoring with Z-score, Isolation Forest, rolling baseline logic, and a minute-bucket seasonal proxy.
-- Designed REST APIs for event ingest, metrics, alerts, incidents, governance, and evaluation with OpenAPI documentation.
-- Modeled alert and incident lifecycle workflows with status transitions, analyst notes, and audit logging.
-- Created a monitoring dashboard with KPI summaries, anomaly trend visualization, alert triage views, and incident detail panels.
-- Added evaluation endpoints for threshold tuning and detector comparison on seeded synthetic datasets.
-- Documented architecture and demo workflows to communicate implemented scope versus planned roadmap features.
-- Delivered local developer tooling with linting, tests, and containerized startup paths for consistent reviewer setup.
+- Built Orbit, a portfolio-scale anomaly detection demo using FastAPI, PostgreSQL, React, and Docker Compose.
+- Implemented a telemetry-style pipeline (ingest → analyze → detect → alert) for repeatable anomaly walkthroughs on seeded synthetic signals.
+- Developed blended anomaly logic with Z-score checks, Isolation Forest scoring, rolling baselines, and minute-bucket seasonality proxying.
+- Added replay tooling to generate deterministic synthetic signal data for consistent demo scenarios and threshold tuning.
+- Designed REST APIs for replay, ingest, scored events, metrics, alerts, incidents, and evaluation with Swagger/OpenAPI documentation.
+- Created a monitoring-style dashboard with KPI summaries, anomaly trend charts, alert triage tables, and incident detail workflows.
+- Documented implemented vs planned scope to clearly distinguish current capabilities from roadmap items (streaming infra, external notifier integrations, push updates).
 
 ## Scope line for applications
 
-- Framed Orbit honestly as a demo-scale portfolio project with simulated ingestion and no current external Slack/PagerDuty/email integrations.
+- Framed Orbit as an honest local observability-inspired demo rather than a production monitoring replacement platform.

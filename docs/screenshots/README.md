@@ -1,25 +1,25 @@
 # Orbit Screenshot Guide
 
-## Captured screenshots currently in the repository
+## Captured screenshots in repository
 
-- [x] `docs/screenshots/01-kpi-dashboard.png` — KPI overview dashboard
-- [x] `docs/screenshots/02-anomaly-trend-chart.png` — anomaly trend visualization
+- [x] `docs/screenshots/01-kpi-dashboard.png` — KPI dashboard snapshot
+- [x] `docs/screenshots/02-anomaly-trend-chart.png` — anomaly trend view
 - [x] `docs/screenshots/03-alerts-table.png` — alert triage table
-- [x] `docs/screenshots/04-incident-drawer.png` — incident workflow drawer
-- [x] `docs/screenshots/05-api-docs.png` — Swagger / API docs view
+- [x] `docs/screenshots/04-incident-drawer.png` — incident detail workflow
+- [x] `docs/screenshots/05-api-docs.png` — FastAPI Swagger docs
 
-## Accuracy notes
+## Accuracy and claim boundaries
 
-- These images reflect a **local portfolio demo** run.
-- Data shown is generated from seeded synthetic replay flows.
-- UI updates are polling-based in the current implementation.
-- Seasonal behavior shown should be described as minute-bucket proxy behavior.
-- External Slack, PagerDuty, and email alerting are planned, not implemented.
+- Captures reflect a local **portfolio-scale anomaly detection demo**.
+- Data is seeded synthetic replay data.
+- Event flow is replay-simulated, not backed by Kafka/Kinesis/WebSocket streaming infrastructure.
+- Alerting screenshots show in-app triage; external Slack/PagerDuty/email notifications are planned.
+- Dashboard refresh behavior is polling-based in current implementation.
 
-## If recapturing screenshots
+## Recapture workflow
 
 ```bash
-docker compose up --build
-make demo-replay
-python backend/scripts/run_demo.py --count 200 --seed 77 --spike-every 10
+make dev-start
 ```
+
+Then capture the UI/API states listed above.

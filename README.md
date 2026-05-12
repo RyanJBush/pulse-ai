@@ -1,109 +1,117 @@
-# Orbit — Real-Time Anomaly Detection and Monitoring Platform
+# Orbit — Portfolio-Scale Anomaly Detection Demo
 
-**Portfolio demo for anomaly detection workflows with a monitoring-style UI and API-first backend.**
+Orbit is a **portfolio-scale anomaly detection demo** that showcases a monitoring-style workflow: ingest signals, score anomalies, triage alerts, and review incidents. It is intentionally scoped for local development and interview walkthroughs rather than production observability operations.
 
-Orbit is a recruiter-friendly project that shows how I design, build, and document an anomaly detection system from data ingest through alert and incident handling. It runs locally with Docker, uses seeded synthetic data, and focuses on transparent implementation choices instead of inflated production claims.
+## Academic identity
 
-## Recruiter Summary
+Built by a **University of Maryland student studying Information Science and Electrical Engineering with a Business minor.**
 
-I am a **University of Maryland student studying Information Science and Electrical Engineering with a Business minor.** Orbit demonstrates practical full-stack engineering: FastAPI + PostgreSQL backend services, blended anomaly scoring, and a React dashboard for triage workflows. The project is a demo-scale system intended for portfolio review and technical discussion.
+## What Orbit demonstrates
 
-## What this project demonstrates
+- Practical backend pipeline design for anomaly detection on synthetic telemetry-like signals.
+- Transparent blending of statistical and ML-based anomaly scoring.
+- Monitoring-inspired UI patterns (KPI cards, trend views, alert triage, incident review).
+- Honest engineering communication with explicit implemented vs planned boundaries.
 
-- Building and documenting a complete anomaly workflow: ingest → score → detect → triage.
-- Blending multiple detection strategies (Z-score, Isolation Forest, rolling baseline, minute-bucket seasonal proxy).
-- Creating operational workflows for alerts, incidents, and analyst notes.
-- Designing APIs and data models with honest scope boundaries.
-- Shipping a local developer experience with Docker Compose, Swagger docs, and repeatable seeded replay.
+## What’s Implemented vs Planned
 
-## What's Implemented vs. Planned
+### ✅ Implemented in this repo
 
-### ✅ Implemented in this repository
+- ✅ FastAPI backend with endpoints for ingest, replay, scored events, metrics summaries, alerts, incidents, and evaluation.
+- ✅ Deterministic replay flow that simulates streaming-like event arrival using seeded synthetic data.
+- ✅ Blended anomaly scoring logic combining:
+  - Z-score deviation checks,
+  - Isolation Forest outlier scoring,
+  - rolling baseline deviation,
+  - minute-bucket seasonal proxy behavior.
+- ✅ React dashboard experience for KPI overview, anomaly trend charting, alerts table, and incident drawer workflow.
+- ✅ Local-first developer experience with Docker Compose and Swagger/OpenAPI docs.
 
-- ✅ FastAPI backend with REST endpoints for ingest, scoring, alerts, incidents, metrics, governance, and evaluation.
-- ✅ PostgreSQL-backed persistence (with SQLite fallback for local experimentation).
-- ✅ Replay engine that **simulates streaming ingestion** using deterministic seeded event generation.
-- ✅ Blended scoring service (Z-score + Isolation Forest + rolling baseline + minute-bucket seasonal proxy).
-- ✅ Alert lifecycle (open/acknowledged/resolved), incident grouping, and notes/audit tracking.
-- ✅ React + Vite dashboard with KPI cards, anomaly trends, alerts table, and incident drawer.
-- ✅ Local run path via Docker Compose and API docs via Swagger/OpenAPI.
+### 🔲 Planned (not fully implemented yet)
 
-### 🔲 Planned / future work
-
-- 🔲 Real streaming ingestion infrastructure (Kafka/Kinesis/WebSocket ingestion path).
-- 🔲 External alerting integrations (Slack, PagerDuty, email).
-- 🔲 Full seasonal decomposition baselines beyond the current minute-bucket proxy.
-- 🔲 Push-based UI updates (WebSocket/SSE) instead of REST polling.
-- 🔲 Broader production observability posture (distributed tracing, multi-service SLO instrumentation).
+- 🔲 Real streaming infrastructure (Kafka/Kinesis/WebSocket ingestion path).
+- 🔲 External notification integrations (Slack, PagerDuty, email).
+- 🔲 Push-based UI updates (WebSocket/SSE instead of polling).
+- 🔲 More advanced seasonality/decomposition beyond current proxy method.
+- 🔲 Production-grade observability hardening (multi-service tracing, SLO instrumentation, on-call integration).
 
 ## Tech stack
 
-- **Backend:** FastAPI, SQLAlchemy 2.x, Pydantic, Python 3.11
-- **Database:** PostgreSQL 16 (Docker), SQLite fallback
-- **Detection/ML:** scikit-learn (Isolation Forest), Python statistical scoring
+- **Backend:** FastAPI, SQLAlchemy, Pydantic, Python 3.11
+- **Database:** PostgreSQL (default in Docker) with SQLite fallback
+- **Detection:** scikit-learn (Isolation Forest) + Python statistical logic
 - **Frontend:** React, Vite, Tailwind CSS, Recharts
-- **Tooling:** Docker Compose, pytest, ruff, ESLint, Prettier, GitHub Actions
+- **Tooling:** Docker Compose, Make, pytest, Ruff, ESLint, Prettier
 
-## Architecture overview
+## Architecture (demo scope)
 
-- Pipeline stages: **Ingest → Model → Detect → Alert**
-- Ingestion mode today: deterministic replay and API ingest (streaming-style architecture for demo use)
-- Detection mode today: blended statistical + ML scoring
-- Human workflow: alert triage, incident status updates, and notes
+Pipeline stages:
 
-For deeper details, see [`docs/architecture.md`](docs/architecture.md) and [`docs/api.md`](docs/api.md).
+1. **Ingest** — API ingest or deterministic replay-generated events.
+2. **Analyze** — feature extraction / score component calculations.
+3. **Detect** — blended anomaly score and anomaly flag decision.
+4. **Alert** — alert creation + incident triage workflow in the UI.
 
-## How to run locally
+This structure is observability-inspired, but currently implemented as a local portfolio demo with synthetic inputs.
 
-### Docker (recommended)
+## One-command dev start
+
+```bash
+make dev-start
+```
+
+This command:
+
+1. Builds/starts services with Docker Compose.
+2. Waits for API health.
+3. Runs seeded replay to populate sample anomalies.
+
+### Manual run option
 
 ```bash
 docker compose up --build
-```
-
-Then open:
-- API docs: `http://localhost:8000/docs`
-- UI (Portfolio Preview): `http://localhost:4173`
-
-### Optional seeded demo replay
-
-```bash
 make demo-replay
-# or
-python backend/scripts/run_demo.py --count 200 --seed 77 --spike-every 10
 ```
 
 ## Demo workflow
 
-1. Start the stack with Docker Compose.
-2. Replay seeded events to populate activity and anomalies.
-3. Open the UI to review KPI cards, trend behavior, alerts, and incidents.
-4. Open Swagger docs to inspect endpoint coverage.
-5. Review [`docs/observability.md`](docs/observability.md) for incident-style walkthroughs.
+1. Run `make dev-start`.
+2. Open API docs at `http://localhost:8000/docs`.
+3. Open the **Portfolio Preview UI** at `http://localhost:4173`.
+4. Inspect anomaly trends, alerts, and incidents.
+5. Optionally rerun replay with custom parameters:
 
-## Screenshots / demo
+```bash
+python backend/scripts/run_demo.py --count 200 --seed 77 --spike-every 10
+```
 
-This repository includes captured UI/API screenshots in [`docs/screenshots/`](docs/screenshots/):
-- `01-kpi-dashboard.png`
-- `02-anomaly-trend-chart.png`
-- `03-alerts-table.png`
-- `04-incident-drawer.png`
-- `05-api-docs.png`
+## Screenshots
 
-See [`docs/screenshots/README.md`](docs/screenshots/README.md) for context and capture notes.
+Screenshots live in [`docs/screenshots/`](docs/screenshots/):
+
+- KPI dashboard
+- Anomaly trend chart
+- Alerts table
+- Incident drawer
+- API docs
+
+See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture notes and recapture steps.
 
 ## Limitations and future work
 
-- This is a **portfolio demo** using synthetic replayed data.
-- No public hosted deployment is provided in this repository.
-- No external paging/notifier integration is currently wired.
-- Seasonal modeling is currently a proxy approach, not full decomposition.
-- UI updates currently rely on polling rather than push streaming.
+- Uses synthetic replay data rather than real production telemetry.
+- Streaming behavior is simulated through replay, not a durable stream processor.
+- External paging/notification tools are not wired yet.
+- UI updates are polling-based today.
+- Alert quality and thresholds are tuned for demo clarity, not production SLAs.
 
 ## Resume bullets
 
-See [`docs/resume-bullets.md`](docs/resume-bullets.md).
+See [`docs/resume-bullets.md`](docs/resume-bullets.md) for portfolio and ATS-oriented bullet points.
 
-## License
+## Related docs
 
-MIT (see [`LICENSE`](LICENSE)).
+- Architecture: [`docs/architecture.md`](docs/architecture.md)
+- API reference: [`docs/api.md`](docs/api.md)
+- Demo runbook: [`docs/demo-runbook.md`](docs/demo-runbook.md)
+- Local change log: [`docs/change-log.md`](docs/change-log.md)
