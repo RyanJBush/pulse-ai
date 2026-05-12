@@ -1,19 +1,11 @@
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
-![CI](https://github.com/RyanJBush/Real-time-anomaly-detection-and-monitoring-platform/actions/workflows/ci.yml/badge.svg)
-![Status](https://img.shields.io/badge/status-portfolio%20%2F%20not%20deployed-orange)
+# Orbit — Real-Time Anomaly Detection and Monitoring Platform
 
-# Orbit
+**Local portfolio demo for SRE/observability workflows (not a production service).**
 
-**Real-Time Anomaly Detection & Monitoring Platform**
+Orbit demonstrates an end-to-end anomaly operations loop on synthetic time-series data:
+1) ingest events, 2) score anomalies with blended detectors, 3) create/manage alerts, and 4) track incidents with notes and audit logs.
 
-[**🎨 UI / Portfolio Preview →**](https://www.perplexity.ai/computer/a/orbit-preview-project-8-of-9-lCA5DWRgQoa4AN6VYPXAUQ)
-
-> A production-style anomaly detection and monitoring platform that ingests time-series events, scores them with a blended ML pipeline (Z-score + Isolation Forest + rolling/seasonal baselines), generates alerts and incidents, and exposes a live operator dashboard — built to mirror how observability tools like Datadog and New Relic work under the hood.
+> Scope honesty: Orbit runs locally via Docker Compose, uses synthetic replay traffic, and is intended for portfolio/interview demos. It does **not** currently implement production streaming infra, external paging integrations, full seasonal decomposition, or enterprise auth.
 
 ---
 
