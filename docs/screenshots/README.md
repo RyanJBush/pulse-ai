@@ -1,9 +1,31 @@
 # Screenshots — capture & embedding guide
 
 This folder is the home for portfolio-quality screenshots embedded in the top-level
-[`README.md`](../../README.md#-screenshots--demo). The README intentionally ships with a
-"screenshots not yet captured" note instead of broken image links. When you're ready,
-follow the steps below so the shots look professional and tell a coherent story.
+[`README.md`](../../README.md#-screenshots--demo). The five PNGs listed below have been
+captured against the live local stack; the embedding guide further down stays as
+reference for re-capture.
+
+## Captured set (committed)
+
+| File | Captured against | Notes |
+|---|---|---|
+| `01-kpi-dashboard.png` | `http://localhost:4173` (Vite preview) / dev server | Full-page Dashboard view. The app's actual KPI cards are **Anomaly rate, Alerts, Throughput / min, High severity anomalies, Buffer queued / enqueued / flushed** — there is no p50/p95 or severity-mix card today, so the spec row below is aspirational, not implemented. Severity-mix is shown via the "Alerts by severity" bar chart further down the page. |
+| `02-anomaly-trend-chart.png` | Dashboard → "Entity drill-down" with `checkout-svc` selected | The Recharts line chart plots raw metric values plus the combined anomaly score as an overlaid line (not red dots/vertical bands as the original spec suggested). The spikes from the seeded replay are clearly visible. |
+| `03-alerts-table.png` | Alerts page → "Alert feed" section | Shows 6 alerts across `acknowledged` / `resolved` states, with metric, anomaly score, timestamp, and the detector explanation column. The app does not currently render severity badges or a severity-filter control, so the table-only shape is the actual UI. |
+| `04-incident-drawer.png` | Alerts page → "Alert workflow" + "Incident workflow" articles, side by side | Alert #1 selected (3 analyst notes), Incident #6 selected (3 incident notes, status `investigating`). This is the closest equivalent to an "incident drawer" in the shipped UI — there is no slide-out drawer component. |
+| `05-api-docs.png` | `http://localhost:8000/docs` (Swagger UI) | All 9 router tag groups expanded so individual endpoints are visible. Schemas section hidden via CSS to keep the shot focused on the API surface. Surfaces 36 endpoints; the README's "34 endpoints" claim reflects the documented router count and may drift from the live OpenAPI total. |
+
+### Repro
+
+The committed shots were captured with Playwright (`chromium`, viewport `1440x900`,
+device scale factor `2`), seeded via `python backend/scripts/run_demo.py` across six
+`(entity, signal)` permutations, with several alerts transitioned to `acknowledged`
+and `resolved` plus analyst/incident notes added via the REST API. PNGs were resized
+to a max width of 1600 px and palette-quantized to keep each file under 400 KB.
+
+If you re-capture: bring up `docker compose up --build`, run a wide seed (multiple
+entities/signals so the entity drill-down has options), and follow the per-shot tips
+below.
 
 ## Five shots, in the order the README references them
 

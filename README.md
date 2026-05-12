@@ -271,15 +271,25 @@ CI runs the same checks plus a frontend production build on every push (`.github
 
 ## 🖼️ Screenshots / Demo
 
-> 📸 **Screenshots are not yet captured.** When adding them, drop PNGs under `docs/screenshots/` and embed them here. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture guidance, naming, and recommended viewports.
+All five shots were captured against the live local stack (FastAPI on `:8000`,
+Vite frontend on `:4173`/`:5173`) after seeding the deterministic replay engine.
+See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture details
+and re-capture guidance.
 
-Recommended shots (in this order on the README):
+### 1 · KPI dashboard
+![Operator dashboard with KPI cards, alert timeline, severity bar chart, and recent alert feed](docs/screenshots/01-kpi-dashboard.png)
 
-1. **KPI dashboard** — top-of-app KPI cards (latency p50/p95, error rate, throughput, anomaly rate, severity mix).
-2. **Anomaly trend chart** — entity drill-down Recharts line view with anomalous points highlighted.
-3. **Alerts table** — alert list with severity badges, status, and filters.
-4. **Incident drawer** — selected incident with linked alerts, status timeline, and analyst notes.
-5. **API docs** — auto-generated Swagger UI at `/docs` listing all 34 endpoints grouped by router.
+### 2 · Anomaly trend chart
+![Entity drill-down line chart for checkout-svc showing latency spikes and the combined anomaly-score overlay](docs/screenshots/02-anomaly-trend-chart.png)
+
+### 3 · Alerts table
+![Alert feed table listing six alerts with their detector explanations, anomaly scores, and current status](docs/screenshots/03-alerts-table.png)
+
+### 4 · Incident workflow (alert + incident notes side-by-side)
+![Alert workflow panel with three analyst notes, next to the incident workflow panel with three incident notes on incident #6](docs/screenshots/04-incident-drawer.png)
+
+### 5 · API docs (Swagger UI)
+![Swagger UI listing every endpoint across the events, scoring, alerts, metrics, evaluation, governance, incidents, ai, serving, and default router groups](docs/screenshots/05-api-docs.png)
 
 A short Loom or asciinema of `python backend/scripts/run_demo.py` running against the live UI also makes a strong recruiter-facing artifact — see [`docs/demo-runbook.md`](docs/demo-runbook.md) for the exact sequence to record.
 
