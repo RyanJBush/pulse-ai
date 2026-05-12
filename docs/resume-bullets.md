@@ -1,20 +1,17 @@
-# Resume Bullets — Orbit (Real-Time Anomaly Detection and Monitoring Platform)
+# Resume Bullets — Orbit
 
-Use these for SRE/observability-oriented applications while preserving accurate portfolio scope.
+## ATS-friendly bullets
 
-## Core bullets (accuracy-first)
+- Built Orbit, a local anomaly detection and monitoring portfolio demo using FastAPI, PostgreSQL, React, and Docker Compose.
+- Implemented deterministic replay ingestion to simulate streaming-style event flow for repeatable anomaly analysis scenarios.
+- Developed blended anomaly scoring with Z-score, Isolation Forest, rolling baseline logic, and a minute-bucket seasonal proxy.
+- Designed REST APIs for event ingest, metrics, alerts, incidents, governance, and evaluation with OpenAPI documentation.
+- Modeled alert and incident lifecycle workflows with status transitions, analyst notes, and audit logging.
+- Created a monitoring dashboard with KPI summaries, anomaly trend visualization, alert triage views, and incident detail panels.
+- Added evaluation endpoints for threshold tuning and detector comparison on seeded synthetic datasets.
+- Documented architecture and demo workflows to communicate implemented scope versus planned roadmap features.
+- Delivered local developer tooling with linting, tests, and containerized startup paths for consistent reviewer setup.
 
-- Built **Orbit**, a local full-stack anomaly detection and monitoring portfolio demo with FastAPI, PostgreSQL, and React, demonstrating event ingest → scoring → alert triage → incident workflow.
-- Implemented blended anomaly scoring (Z-score, Isolation Forest, rolling baseline, minute-bucket seasonal proxy) to produce confidence-based anomaly decisions.
-- Shipped REST APIs for events, scoring, alerts, incidents, metrics, evaluation, and governance, with OpenAPI docs for recruiter/interviewer walkthroughs.
-- Implemented alert lifecycle state transitions and analyst notes, plus incident status tracking to model SRE-style triage workflows.
-- Added detector evaluation/tuning endpoints to compare thresholds and detector behavior on deterministic seeded replay runs.
+## Scope line for applications
 
-## Scope disclaimer line (recommended under project entry)
-
-- Portfolio scope: local Docker demo with synthetic replay traffic; no production deployment, no Kafka-class streaming bus, no external paging integration, and no enterprise auth stack.
-
-## Optional variants
-
-- Built a dashboard that demonstrates KPI monitoring, anomaly trend analysis, alerts triage, and incident workflow state management.
-- Designed APIs and data models that separate implemented capabilities from planned roadmap items to avoid overclaiming production readiness.
+- Framed Orbit honestly as a demo-scale portfolio project with simulated ingestion and no current external Slack/PagerDuty/email integrations.

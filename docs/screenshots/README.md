@@ -1,28 +1,22 @@
-# Orbit Screenshot Documentation
+# Orbit Screenshot Guide
 
-These screenshots support the README narrative for **Orbit — Real-Time Anomaly Detection and Monitoring Platform** as a local portfolio demo.
+## Captured screenshots currently in the repository
 
-## What each screenshot demonstrates
+- [x] `docs/screenshots/01-kpi-dashboard.png` — KPI overview dashboard
+- [x] `docs/screenshots/02-anomaly-trend-chart.png` — anomaly trend visualization
+- [x] `docs/screenshots/03-alerts-table.png` — alert triage table
+- [x] `docs/screenshots/04-incident-drawer.png` — incident workflow drawer
+- [x] `docs/screenshots/05-api-docs.png` — Swagger / API docs view
 
-1. `01-kpi-dashboard.png`
-   - Demonstrates the dashboard-level operational snapshot in the local UI.
-2. `02-anomaly-trend-chart.png`
-   - Demonstrates trend behavior and anomaly signal movement for a selected entity.
-3. `03-alerts-table.png`
-   - Demonstrates alert queue triage and status-oriented analyst workflow.
-4. `04-incident-drawer.png`
-   - Demonstrates incident handling workflow (state + notes context).
-5. `05-api-docs.png`
-   - Demonstrates breadth of API surface via local Swagger docs.
+## Accuracy notes
 
-## Accuracy notes to keep with screenshots
+- These images reflect a **local portfolio demo** run.
+- Data shown is generated from seeded synthetic replay flows.
+- UI updates are polling-based in the current implementation.
+- Seasonal behavior shown should be described as minute-bucket proxy behavior.
+- External Slack, PagerDuty, and email alerting are planned, not implemented.
 
-- Images represent a **local Docker demo** driven by synthetic replay events.
-- They do not imply production deployment, enterprise auth, or external paging integrations.
-- UI reflects REST-polling behavior (not guaranteed streaming push architecture).
-- Seasonal behavior visuals should be described as proxy baseline behavior unless full seasonal decomposition is implemented.
-
-## Capture refresh commands
+## If recapturing screenshots
 
 ```bash
 docker compose up --build
