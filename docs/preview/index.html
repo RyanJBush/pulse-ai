@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbit — Portfolio Preview</title>
+    <style>
+      :root {
+        --bg: #070b14;
+        --panel: #0d1424;
+        --panel-2: #111b31;
+        --text: #e6f0ff;
+        --muted: #9cb4d8;
+        --accent: #23d5ff;
+        --accent-2: #3b82f6;
+        --ok: #22c55e;
+        --planned: #f59e0b;
+        --border: #1d2b48;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at 20% 0%, #10203f 0%, var(--bg) 48%);
+      }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 40px; }
+      .card {
+        background: linear-gradient(180deg, rgba(17,27,49,.96), rgba(13,20,36,.96));
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 14px 32px rgba(0,0,0,.35);
+      }
+      .hero { padding: 28px; }
+      h1 { margin: 0 0 8px; font-size: clamp(1.8rem, 4vw, 2.7rem); }
+      .tagline { margin: 0; color: var(--muted); line-height: 1.6; }
+      .grid { display: grid; gap: 16px; margin-top: 16px; }
+      @media (min-width: 860px) { .grid { grid-template-columns: 1.15fr .85fr; } }
+      .section { padding: 20px; }
+      h2 { margin: 0 0 14px; font-size: 1.1rem; color: var(--accent); }
+      .pipeline {
+        display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; align-items: center;
+      }
+      .node {
+        background: rgba(35,213,255,.08); border: 1px solid #1d8ba4; border-radius: 12px;
+        text-align: center; padding: 14px 8px; font-weight: 700; font-size: .92rem;
+      }
+      .arrow { text-align: center; color: var(--accent); font-weight: 800; }
+      .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+      .features li { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--muted); }
+      .features .done { color: #d9ffe5; border-color: rgba(34,197,94,.35); }
+      .features .plan { color: #ffe9c7; border-color: rgba(245,158,11,.35); }
+      .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+      .badge {
+        border: 1px solid #1f4b83; border-radius: 999px; padding: 6px 10px; font-size: .8rem;
+        color: #c9e3ff; background: rgba(59,130,246,.14);
+      }
+      a { color: var(--accent); }
+      footer { margin-top: 18px; text-align: center; color: var(--muted); font-size: .9rem; }
+      @media (max-width: 520px) {
+        .pipeline { grid-template-columns: 1fr; }
+        .arrow { transform: rotate(90deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card hero">
+        <h1>Orbit</h1>
+        <p class="tagline">Portfolio Preview — demo-scale anomaly detection and monitoring workflow with simulated streaming-style ingestion.</p>
+      </section>
+
+      <div class="grid">
+        <section class="card section">
+          <h2>Anomaly Detection Pipeline</h2>
+          <div class="pipeline" aria-label="Ingest to Alert pipeline">
+            <div class="node">Ingest</div>
+            <div class="arrow">→</div>
+            <div class="node">Model</div>
+            <div class="arrow">→</div>
+            <div class="node">Detect</div>
+            <div class="arrow">→</div>
+            <div class="node">Alert</div>
+          </div>
+        </section>
+
+        <section class="card section">
+          <h2>Quick Links</h2>
+          <p><a href="https://github.com/RyanJBush/Real-time-anomaly-detection-and-monitoring-platform" target="_blank" rel="noreferrer">GitHub Repository</a></p>
+        </section>
+      </div>
+
+      <section class="card section" style="margin-top:16px;">
+        <h2>Features (Implemented vs Planned)</h2>
+        <ul class="features">
+          <li class="done">✅ FastAPI + PostgreSQL backend APIs for events, metrics, alerts, incidents, and evaluation</li>
+          <li class="done">✅ Deterministic replay flow that simulates streaming-style ingestion for demo scenarios</li>
+          <li class="done">✅ Blended anomaly scoring (Z-score, Isolation Forest, rolling baseline, minute-bucket seasonal proxy)</li>
+          <li class="done">✅ React dashboard for KPI monitoring, anomaly trends, alert triage, and incident workflow</li>
+          <li class="plan">🔲 External Slack, PagerDuty, and email alerting integrations</li>
+          <li class="plan">🔲 Full seasonal decomposition and broader production observability instrumentation</li>
+          <li class="plan">🔲 Real streaming ingestion stack (Kafka/Kinesis/WebSocket-based pipeline)</li>
+        </ul>
+      </section>
+
+      <section class="card section" style="margin-top:16px;">
+        <h2>Tech Stack</h2>
+        <div class="badges">
+          <span class="badge">FastAPI</span><span class="badge">Python</span><span class="badge">SQLAlchemy</span>
+          <span class="badge">PostgreSQL</span><span class="badge">scikit-learn</span><span class="badge">React</span>
+          <span class="badge">Vite</span><span class="badge">Tailwind CSS</span><span class="badge">Docker Compose</span>
+        </div>
+      </section>
+
+      <footer>
+        Built by <a href="https://github.com/RyanJBush" target="_blank" rel="noreferrer">RyanJBush</a>
+      </footer>
+    </main>
+  </body>
+</html>

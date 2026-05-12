@@ -53,6 +53,6 @@ Open Metrics page “Detector evaluation lab”:
 
 Emphasize:
 
-- end-to-end flow from event ingest to scoring to alert/incident actions,
+- full workflow from event ingest to scoring to alert/incident actions,
 - evaluation tooling for model governance,
 - dockerized local run and CI checks.
