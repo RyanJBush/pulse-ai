@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.alert import AlertNoteCreate, AlertNoteRead, AlertRead, AlertStatusUpdate
+from app.schemas.alert import AlertNoteCreate, AlertNoteRead, AlertRead, AlertStatusUpdate, AlertSuppressRequest, AlertSuppressResponse
 from app.services.alert_service import AlertService
 
 router = APIRouter()
@@ -52,3 +52,14 @@ def add_alert_note(
 @router.get("/{alert_id}/notes", response_model=list[AlertNoteRead])
 def list_alert_notes(alert_id: int, db: Session = Depends(get_db)) -> list[AlertNoteRead]:
     return AlertService(db).list_notes(alert_id=alert_id)
+
+
+@router.post("/suppress", response_model=AlertSuppressResponse)
+def suppress_alert_metric(payload: AlertSuppressRequest, db: Session = Depends(get_db)) -> AlertSuppressResponse:
+    result = AlertService(db).suppress_metric(payload.workspace_id, payload.metric, payload.duration_minutes)
+    return AlertSuppressResponse(**result)
+
+
+@router.get("/active", response_model=list[AlertRead])
+def list_active_alerts(workspace_id: str | None = Query(default=None), db: Session = Depends(get_db)) -> list[AlertRead]:
+    return AlertService(db).list_active_alerts(workspace_id=workspace_id)

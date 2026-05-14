@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     ANOMALY_THRESHOLD: float = 0.75
     ALERT_COOLDOWN_SECONDS: int = 300
+    ALERT_DEDUP_COOLDOWN_SECONDS: int = 900
+    REDIS_URL: str = "redis://redis:6379/0"
     DEFAULT_REPLAY_COUNT: int = 120
     REPLAY_SPIKE_MULTIPLIER: float = 4.5
     CACHE_TTL_SECONDS: int = 30

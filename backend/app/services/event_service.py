@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.ingestion_buffer import buffer_instance
 from app.core.logging import get_logger
+from app.core.metrics import active_alerts_gauge, anomalies_detected_total, model_inference_latency_seconds
 from app.models.alert import Alert
 from app.models.anomaly_score import AnomalyScore
 from app.models.event import Event
@@ -103,6 +104,7 @@ class EventService:
             event_timestamp=event.event_timestamp,
         )
         score_latency_ms = round((time.perf_counter() - score_started) * 1000.0, 4)
+        model_inference_latency_seconds.observe(score_latency_ms / 1000.0)
 
         drift_hook = (
             "watch" if score.confidence_score > 0.8 and score.combined_score > 0.7 else "stable"
@@ -137,6 +139,7 @@ class EventService:
 
         alert_id = None
         if score.is_anomalous:
+            anomalies_detected_total.inc()
             alert = self.alert_service.create_alert(
                 event_id=event.id,
                 workspace_id=event.workspace_id,
@@ -155,6 +158,9 @@ class EventService:
                 },
             )
             alert_id = alert.id if alert else None
+
+        active_count = self.db.query(Alert).filter(Alert.status.in_(("new", "acknowledged", "investigating", "suppressed"))).count()
+        active_alerts_gauge.set(active_count)
 
         return EventIngestResponse(
             event=EventRead.model_validate(event),
