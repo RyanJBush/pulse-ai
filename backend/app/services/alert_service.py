@@ -13,7 +13,6 @@ from app.models.anomaly_score import AnomalyScore
 from app.models.audit_log import AuditLog
 from app.models.event import Event
 from app.models.incident import Incident
-from app.models.suppression_rule import SuppressionRule
 from app.schemas.alert import AlertNoteRead, AlertRead
 from app.services.alert_manager import AlertManager
 from app.services.rca_service import RCAEngine
