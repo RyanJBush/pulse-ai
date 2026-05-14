@@ -1,0 +1,12 @@
+# CI-safe requirements — uses SQLite, no external services needed
+# psycopg2-binary intentionally omitted: conftest.py sets DATABASE_URL=sqlite:///
+# redis and prometheus omitted: no live services in CI
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.38
+pydantic-settings==2.7.0
+scikit-learn==1.6.1
+numpy==2.2.0
+pytest==8.3.4
+httpx==0.28.1
+ruff==0.11.0
