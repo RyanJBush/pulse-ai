@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.router import api_router
 from app.core.background_jobs import BackgroundJobRunner
@@ -62,6 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router, prefix=settings.API_PREFIX)
+Instrumentator().instrument(app).expose(app)
 
 
 @app.middleware("http")
