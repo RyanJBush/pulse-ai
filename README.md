@@ -1,5 +1,7 @@
 # Orbit — Portfolio-Scale Anomaly Detection Demo
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open-22c55e?logo=render&logoColor=white)](https://anomaly-detection.onrender.com)
+
 Orbit is a **portfolio-scale anomaly detection demo** that showcases a monitoring-style workflow: ingest signals, score anomalies, triage alerts, and review incidents. It is intentionally scoped for local development and interview walkthroughs rather than production observability operations.
 
 ## Academic identity
@@ -43,6 +45,30 @@ Built by a **University of Maryland student studying Information Science and Ele
 - **Frontend:** React, Vite, Tailwind CSS, Recharts
 - **Tooling:** Docker Compose, Make, pytest, Ruff, ESLint, Prettier
 
+## Monitoring Stack
+
+Orbit uses **Prometheus + a custom React dashboard** for observability-style monitoring:
+
+- **Prometheus** is used for backend instrumentation and metric scraping (`/metrics`) to track anomaly scoring, alert behavior, and service health.
+- **Custom dashboards (implemented in the frontend app)** are used instead of Grafana for this portfolio project so the full user workflow (metrics view, anomalies, triage, incidents) can be demonstrated in one cohesive UI and codebase.
+
+### Why custom dashboards instead of Grafana (for now)
+
+- Better for interview demos: one URL, one UI, one narrative.
+- Easier to tailor views to anomaly triage-specific fields and workflows.
+- Tradeoff: less out-of-the-box paneling/alert-routing capability than a full Grafana stack.
+
+If you adapt this project toward production observability operations, a typical next step is adding Grafana dashboards on top of Prometheus while keeping the app UI for incident-specific workflows.
+
+## Anomaly Detection Methods
+
+| Method | Algorithm | Use Case | Threshold Type |
+| --- | --- | --- | --- |
+| Z-Score | Rolling z-score over metric windows | Detect short-term statistical deviations from local baseline | Dynamic |
+| Isolation Forest | Tree-based unsupervised outlier detection | Capture nonlinear and multivariate anomalous patterns | Dynamic |
+| Baseline Deviation | Rolling mean/variance delta checks | Track drift or sudden departures from expected operating range | Statistical |
+| Seasonal Proxy | Minute-bucket seasonal comparison | Flag metric spikes relative to recurring time-bucket behavior | Dynamic |
+
 ## Architecture (demo scope)
 
 Pipeline stages:
@@ -53,6 +79,17 @@ Pipeline stages:
 4. **Alert** — alert creation + incident triage workflow in the UI.
 
 This structure is observability-inspired, but currently implemented as a local portfolio demo with synthetic inputs.
+
+## Alert Flow
+
+```text
+Metric Ingestion
+  → Feature Extraction
+  → ML Scoring
+  → Threshold Evaluation
+  → Alert
+  → Dashboard/Notification
+```
 
 ## One-command dev start
 
@@ -87,15 +124,12 @@ python backend/scripts/run_demo.py --count 200 --seed 77 --spike-every 10
 
 ## Screenshots
 
-Screenshots live in [`docs/screenshots/`](docs/screenshots/):
+Add images under `docs/images/` as the project evolves:
 
-- KPI dashboard
-- Anomaly trend chart
-- Alerts table
-- Incident drawer
-- API docs
-
-See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture notes and recapture steps.
+![Dashboard Overview](docs/images/dashboard-overview.png)
+![Anomaly Trend View](docs/images/anomaly-trend.png)
+![Alert Triage Table](docs/images/alerts-table.png)
+![Incident Drilldown](docs/images/incident-drilldown.png)
 
 ## Limitations and future work
 
@@ -104,6 +138,15 @@ See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture notes
 - External paging/notification tools are not wired yet.
 - UI updates are polling-based today.
 - Alert quality and thresholds are tuned for demo clarity, not production SLAs.
+
+## Repository metadata (GitHub topics)
+
+If applicable, manually add these GitHub repository topics for discoverability:
+
+- `prometheus`
+- `grafana`
+- `observability`
+- `alerting`
 
 ## Resume bullets
 
